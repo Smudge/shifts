@@ -7,10 +7,15 @@ class User < ActiveRecord::Base
   has_many :payforms
 
   has_many :shifts
-  has_many :substitute_sources, :as => :user_source
+
+  has_many :user_source_links, :as => :user_source
+  has_many :notices, :as => :author
+  has_many :notices, :as => :remover
 
 
-  validates_presence_of :name
+
+  validates_presence_of :first_name
+  validates_presence_of :last_name
   validates_presence_of :login
   validates_uniqueness_of :login
   validate :departments_not_empty
@@ -37,8 +42,6 @@ class User < ActiveRecord::Base
           new_user.last_name  = entry['sn'].first
           new_user.email = entry['mail'].first
 
-          # create name as full name is this user doesn't have a nickname or different name assigned
-          new_user.name = new_user.full_name if new_user.name.blank?
         end
         #add the user to the currently selected department
         new_user.departments << department
@@ -99,11 +102,33 @@ class User < ActiveRecord::Base
     self.departments_users[0].active
   end
 
-  def full_name
+  def name
+    [((nick_name.nil? or nick_name.length == 0) ? first_name : nick_name), last_name].join(" ")
+  end
+
+  def proper_name
     [first_name, last_name].join(" ")
   end
 
-  memoize :full_name, :permission_list, :is_superuser?
+  def awesome_name
+    [first_name, '"' + nick_name + '"', last_name]
+  end
+  
+  #This method is needed to make polymorphic associations work
+  def users
+    [self]
+  end
+
+  def available_sub_requests
+    SubRequest.all.select{|sr| sr.substitutes.include?(self)}
+  end
+
+  def notices
+    Notice.current.select{|n| n.viewers.include?(self)}
+  end
+
+  memoize :name, :permission_list, :is_superuser?
+
 
   private
 
@@ -111,4 +136,3 @@ class User < ActiveRecord::Base
     errors.add("User must have at least one department.", "") if departments.empty?
   end
 end
-

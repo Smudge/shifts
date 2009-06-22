@@ -2,6 +2,9 @@ class Role < ActiveRecord::Base
   belongs_to :department
   has_and_belongs_to_many :permissions
   has_and_belongs_to_many :users
+
+  has_many :user_source_links, :as => :user_source
+
   validates_presence_of :name
   validate :must_belong_to_department
   validate :must_have_unique_name_in_dept #can't use scope because of habtm relationship :(
@@ -19,4 +22,3 @@ class Role < ActiveRecord::Base
     errors.add("Name must be unique in a department.", "") unless associated_roles.select{ |role| role.name == self.name }.empty?
   end
 end
-
