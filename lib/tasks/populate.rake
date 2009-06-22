@@ -43,7 +43,7 @@ namespace :db do
 
     Department.all.each do |department|
 
-      LocGroup.populate(3..10) do |loc_group|
+      LocGroup.populate(3..8) do |loc_group|
         loc_group.name = Populator.words(1..3).titleize
         loc_group.department_id = department.id
         view_perm = Permission.create(:name => loc_group.name + " view")
@@ -53,7 +53,7 @@ namespace :db do
         admin_perm = Permission.create(:name => loc_group.name + " admin")
         loc_group.admin_perm_id = admin_perm.id
 
-        Location.populate(2..8) do |location|
+        Location.populate(2..5) do |location|
           location.name = Populator.words(1..3).titleize
           location.short_name = location.name.split.first
           location.min_staff = 0..2
@@ -63,7 +63,7 @@ namespace :db do
           location.loc_group_id = loc_group.id
 
 # For each department, for each day from now until some time in the future, 1 time slot is created from 9AM to 11PM
-          (Date.today..2.days.from_now.to_date).each do |day|
+          (Date.today..2.years.from_now.to_date).each do |day|
             TimeSlot.populate(1) do |time_slot|
               time_slot.location_id = location.id
               time_slot.start = ("9AM " + day.to_s).to_datetime
