@@ -102,7 +102,7 @@ namespace :db do
     Department.all.each do |department|
       department.loc_groups.all.each do |loc_group|
         loc_group.locations.all.each do |location|
-          (Date.today..4.months.from_now.to_date).each do |day|
+          (Date.today..4.days.from_now.to_date).each do |day|
             start_time = ("9AM " + day.to_s).to_time.localtime
             end_time = ("11PM " + day.to_s).to_time.localtime
             TimeSlot.create(:location_id => location.id, :start => start_time,
