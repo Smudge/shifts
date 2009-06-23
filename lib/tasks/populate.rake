@@ -5,6 +5,20 @@ namespace :db do
     require 'populator'
     require 'faker'
 
+    # Edit these if you want to change amount of data generated
+    number_of_users = 20..50
+    number_of_stickies_per_department = 40
+    # The following range gives start dates for stickies
+    stickies_start_range = 4.months.ago..4.months.from_now
+    number_of_loc_groups_per_department = 3..5
+    number_of_locations_per_loc_group = 2..3
+    # If you don't want the priority to be set, (might create fewer shifts), then set the following to nil
+    location_priority = 1..5
+    max_number_of_shifts_per_time_slot = 20
+
+
+    # Start of code
+
     [Department, User, LocGroup, Location, TimeSlot, Shift, Notice].each do |model|
       model.delete_all
     end
@@ -19,7 +33,7 @@ namespace :db do
 #                      :day => 1, :day2 => 15, :created_at => 2.years.ago)
 
     Department.all.each do |department|
-      User.populate(20..50) do |user|
+      User.populate(number_of_users) do |user|
         user.first_name = Faker::Name.first_name
         user.last_name = Faker::Name.last_name
         user.login = user.first_name.downcase.first + user.last_name.downcase.first + (6 + rand(994)).to_s
@@ -41,11 +55,11 @@ namespace :db do
     end
 
     Department.all.each do |department|
-      Notice.populate(20) do |sticky|
+      Notice.populate(number_of_stickies_per_department) do |sticky|
         sticky.is_sticky = true
         sticky.content = Populator.sentences(1..3)
         sticky.author_id = department.users[rand(department.users.length)].id
-        sticky.start_time = 4.months.ago..4.months.from_now
+        sticky.start_time = stickies_start_range
         sticky.end_time = sticky.start_time + (3 + rand(200)).days unless rand(10) == 0
         sticky.department_id = department.id
         if sticky.end_time && sticky.end_time < Time.now
@@ -54,7 +68,7 @@ namespace :db do
         sticky.created_at = sticky.start_time - 4.hours
       end
 
-      LocGroup.populate(3..5) do |loc_group|
+      LocGroup.populate(number_of_loc_groups_per_department) do |loc_group|
         loc_group.name = Populator.words(1..3).titleize
         loc_group.department_id = department.id
         view_perm = Permission.create(:name => loc_group.name + " view")
@@ -65,12 +79,12 @@ namespace :db do
         loc_group.admin_perm_id = admin_perm.id
         loc_group.created_at = department.created_at
 
-        Location.populate(2..3) do |location|
+        Location.populate(number_of_locations_per_loc_group) do |location|
           location.name = Populator.words(1..3).titleize
           location.short_name = location.name.split.first
           location.min_staff = 0..1
-          location.max_staff = (location.min_staff) + rand(3)
-          location.priority = 1..5
+          location.max_staff = location.min_staff + rand(3)
+          location.priority = location_priority
           location.active = true
           location.loc_group_id = loc_group.id
           location.created_at = loc_group.created_at
@@ -108,7 +122,7 @@ namespace :db do
             TimeSlot.create(:location_id => location.id, :start => start_time,
                             :end => end_time, :created_at => day.to_datetime)
 
-            20.times do
+            max_number_of_shifts_per_time_slot.times do
               start_hour = 9 + rand(14)
               start_minute = 15 * rand(4)
               start_time = "#{start_hour}:#{start_minute}, #{day}".to_time.localtime

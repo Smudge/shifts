@@ -92,7 +92,4 @@ CASClient::Frameworks::Rails::Filter.configure(
   :extra_attributes_session_key => :cas_extra_attributes,
   :logger => cas_logger
 )
-<<<<<<< HEAD:config/environment.rb
 
-=======
->>>>>>> f6b7e8f3821d96ad40e1107a3e225f67d7d251ba:config/environment.rb
