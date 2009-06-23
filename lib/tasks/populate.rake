@@ -41,7 +41,7 @@ namespace :db do
     end
 
     Department.all.each do |department|
-      Notice.populate(500) do |sticky|
+      Notice.populate(20) do |sticky|
         sticky.is_sticky = true
         sticky.content = Populator.sentences(1..3)
         sticky.author_id = department.users[rand(department.users.length)].id
@@ -54,7 +54,7 @@ namespace :db do
         sticky.created_at = sticky.start_time - 4.hours
       end
 
-      LocGroup.populate(3..10) do |loc_group|
+      LocGroup.populate(3..5) do |loc_group|
         loc_group.name = Populator.words(1..3).titleize
         loc_group.department_id = department.id
         view_perm = Permission.create(:name => loc_group.name + " view")
@@ -65,11 +65,11 @@ namespace :db do
         loc_group.admin_perm_id = admin_perm.id
         loc_group.created_at = department.created_at
 
-        Location.populate(2..8) do |location|
+        Location.populate(2..3) do |location|
           location.name = Populator.words(1..3).titleize
           location.short_name = location.name.split.first
-          location.min_staff = 0..2
-          location.max_staff = (location.min_staff) + rand(4)
+          location.min_staff = 0..1
+          location.max_staff = (location.min_staff) + rand(3)
           location.priority = 1..5
           location.active = true
           location.loc_group_id = loc_group.id
@@ -103,15 +103,15 @@ namespace :db do
       department.loc_groups.all.each do |loc_group|
         loc_group.locations.all.each do |location|
           (Date.today..4.months.from_now.to_date).each do |day|
-            start_time = ("9AM " + day.to_s).to_datetime
-            end_time = ("11PM " + day.to_s).to_datetime
+            start_time = ("9AM " + day.to_s).to_time.localtime
+            end_time = ("11PM " + day.to_s).to_time.localtime
             TimeSlot.create(:location_id => location.id, :start => start_time,
                             :end => end_time, :created_at => day.to_datetime)
 
             20.times do
               start_hour = 9 + rand(14)
               start_minute = 15 * rand(4)
-              start_time = "#{start_hour}:#{start_minute}, #{day}".to_datetime
+              start_time = "#{start_hour}:#{start_minute}, #{day}".to_time.localtime
               end_time = start_time + (15 * (1 + rand(12))).minutes
               user = department.users[rand(department.users.length)]
               Shift.create(:start => start_time, :end => end_time, :user_id => user.id,
