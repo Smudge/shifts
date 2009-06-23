@@ -10,8 +10,8 @@ class Department < ActiveRecord::Base
   has_many :payform_sets
   has_many :categories
 
-  
-  
+
+
 
   has_many :user_source_links, :as => :user_source
 
@@ -19,7 +19,7 @@ class Department < ActiveRecord::Base
 
 
   has_many :substitute_sources, :as => :user_source
-  has_many :roles
+  has_and_belongs_to_many :roles
 
   before_validation_on_create :create_permissions
 # this next validation doesn't work -cmk
@@ -40,3 +40,4 @@ class Department < ActiveRecord::Base
   end
 
 end
+
