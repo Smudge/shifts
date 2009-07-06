@@ -54,6 +54,7 @@ Rails::Initializer.run do |config|
   config.gem "chronic"
   config.gem "has_many_polymorphs"
   config.gem "authlogic"
+  config.gem "facebooker"
 
   # Only load the plugins named here, in the order given. By default, all plugins
   # in vendor/plugins are loaded in alphabetical order.
