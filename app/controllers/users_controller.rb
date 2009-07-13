@@ -25,7 +25,7 @@ class UsersController < ApplicationController
     @user = User.new(params[:user])
     @user.auth_type = LOGIN_OPTIONS[0] if LOGIN_OPTIONS.size == 1
     if @user.auth_type == "authlogic"
-      @user.password = @user.password_confirmation = random_password
+     @user.password = @user.password_confirmation = random_password
       @user.departments << @department
       if @user.save
         @user.deliver_password_reset_instructions!
@@ -61,7 +61,7 @@ class UsersController < ApplicationController
         @user.first_name = (params[:user][:first_name]) unless params[:user][:first_name]==""
         @user.last_name = (params[:user][:last_name]) unless params[:user][:last_name]==""
         @user.roles = (params[:user][:role_ids] ? params[:user][:role_ids].collect{|id| Role.find(id)} : [])
-        @user.password = @user.password_confirmation = random_password
+       @user.password = @user.password_confirmation = random_password
         if @user.save
           flash[:notice] = "Successfully created user."
           redirect_to @user
