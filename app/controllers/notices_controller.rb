@@ -49,6 +49,13 @@ class NoticesController < ApplicationController
                     end
                   }
       end
+    if @notice.save
+      set_sources
+      flash[:notice] = 'Notice was successfully created.'
+      redirect_to @notice
+    else
+      #raise params.to_yaml
+      render :action => "new"
     end
   end
 
@@ -65,7 +72,7 @@ class NoticesController < ApplicationController
       flash[:notice] = 'Notice was successfully updated.'
       redirect_to @notice
     else
-      render :action => "edit", :layout => false
+      render :action => "edit"
     end
   end
 
