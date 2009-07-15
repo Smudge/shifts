@@ -34,6 +34,7 @@ class NoticesController < ApplicationController
     @notice.department = @department
     @notice.start_time = Time.now if @notice.is_sticky
     @notice.end_time = nil if params[:indefinite] || @notice.is_sticky
+    @legend = "New Notice"
     respond_to do |format|
       if @notice.save
         set_sources
@@ -41,8 +42,12 @@ class NoticesController < ApplicationController
         format.html {redirect_to :action => "index"}
         format.js
       else
-        format.html {redirect_to :action => "new"}
-        format.js {page.replace_html('TB_ajaxContent', :partial => "form")}
+        format.html {render :action => "new"}
+        format.js {render :update do |page|
+                    page.replace_html('TB_ajaxContent', :partial => "form")
+                    page.replace_html('notice_form', :partial => "form")
+                    end
+                  }
       end
     end
   end
