@@ -67,6 +67,8 @@ class DataObjectsController < ApplicationController
     end
   end
   
+
+  
   def destroy
     @data_object = DataObject.find(params[:id])
     @data_type = @data_object.data_type

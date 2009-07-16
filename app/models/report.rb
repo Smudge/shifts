@@ -1,6 +1,7 @@
 class Report < ActiveRecord::Base
   belongs_to :shift
   delegate :user, :to => :shift
+  delegate :location, :to => :shift
   has_many :report_items, :dependent => :destroy
 
   validates_uniqueness_of :shift_id
@@ -10,8 +11,10 @@ class Report < ActiveRecord::Base
     all_notices.uniq
   end
 
-  def get_data_objects
-    all_data_objects = self.shift.location.data_objects
+  def data_entries
+    shift.location.data_objects.collect{|d| d.data_entries}.flatten.uniq
   end
+  
+
 end
 

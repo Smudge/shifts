@@ -23,7 +23,7 @@
       <%= f.text_field :description %>
     </p>
     <p>
-      <%= f.label :locations %><br />
+      <%= f.label :locations %><br /><strong></strong>
       <%= collection_multiple_select(:data_object, :location_ids, @locations_select, :id, :name, :selected_items => @data_object.locations.map{|loc| loc.id}) %>
     </p>
     <p>
