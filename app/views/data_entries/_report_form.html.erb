@@ -1,4 +1,5 @@
-<% fields_for [report_form, @data_entry] do |f| %>
+
+<% fields_for @data_entry do |f| %>
   <%= f.error_messages %>
   <% report_form.data_type.data_fields.each do |field| %>
     <% args = field.prepare_form_helpers %>

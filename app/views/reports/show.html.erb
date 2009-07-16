@@ -1,5 +1,8 @@
+<% javascript 'jrails' %>
+
 <% stylesheet 'report', 'notice' %>
 <% title "Shift Report at the #{@report.shift.location.name}" %>
+
 <fieldset>
 <legend>Message Center</legend>
 <%= render :partial => 'notices/notice', :collection => @report.get_notices %>
@@ -10,11 +13,13 @@
   </fieldset>
 </fieldset>
 <p>
-  <fieldset>
-  <legend>Data Objects</legend>
-  <%= render :partial => 'data_entries/report_form', :collection => @report.shift.location.data_objects %>
-  </fieldset>
+  <span id="pref_link" class="dotted_link" style="display:none">
+    <%= link_toggle "data_form", "Show/Hide Data Objects", "fast" %>
+  </span>
 </p>
+<div id = "data_form">
+<%= render :partial => 'data_entries/report_form', :collection => @report.shift.location.data_objects%>
+</div>
 <% unless @report.departed || current_user!=@report.user %>
   <%= render :partial => 'new_report_item_form' %>
 <% end %>
@@ -22,3 +27,7 @@
   </p>
 <%= render :partial => 'report'%>
 
+<script type="text/javascript">
+$("#data_form").hide();
+ $("#pref_link").show();
+</script>
