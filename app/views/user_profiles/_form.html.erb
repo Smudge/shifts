@@ -16,10 +16,15 @@
             
             
           <% elsif entry.display_type == "upload_pic" %>
-            page.insert_html :bottom, :user_profile_pics, :partial => 'user_profile_pic', :object => UserProfilePics.new
-            <%#= send("text_field", *args) %>
-            <%= render :partial => "user_profile_pic", :object => UserProfilePics.new >
-          
+
+            <div class="photo">
+              <% fields_for "user_profile[user_profile_pic_attributes][]", user_profile_pic do |p| %>
+                <p>
+                  <%= p.file_field :photo, :index => nil %>
+                  <%= link_to_function "delete", "remove_field($(this), ('user_profile_pic'))" %>
+                </p>
+              <% end %>
+            </div>
             
             
             

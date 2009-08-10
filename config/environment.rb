@@ -57,6 +57,7 @@ Rails::Initializer.run do |config|
   config.gem 'ar_mailer', :lib => 'action_mailer/ar_mailer'
   config.gem "javan-whenever", :lib => false, :source => "http://gems.github.com"
   config.gem "ar-extensions"
+  config.gem "paperclip"
   #make sure you remove 'ar_mailer' - sudo gem uninstall ar_mailer - this is an old version
 
   # Only load the plugins named here, in the order given. By default, all plugins
