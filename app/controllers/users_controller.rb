@@ -5,7 +5,7 @@ class UsersController < ApplicationController
     if params[:show_inactive]
       @users = @department.users
     else
-      @users = current_department.active_users
+      @users = current_department.active_users.sort_by(&:reverse_name)
     end
 
     if params[:search]
@@ -23,17 +23,22 @@ class UsersController < ApplicationController
 
     respond_to do |wants|
       wants.html
-      wants.csv { render :text => @users.to_csv(:template => :normal) }
+      wants.csv { render :text => @users.to_csv_users }
     end
   end
 
   def show
     @user = User.find(params[:id])
-    @user_profile = UserProfile.find_by_user_id((params[:id]))
+    @user_profile = UserProfile.where(:user_id => params[:id]).first
     unless @user_profile.user.departments.include?(@department)
       flash[:error] = "This user does not have a profile in this department."
     end
     @user_profile_entries = @user_profile.user_profile_entries.select{ |entry| entry.user_profile_field.department_id == @department.id && entry.user_profile_field.public }
+  end
+
+  def show_shifts
+    @user = User.find(params[:id])
+    @shifts = @user.shifts.sort_by{|s| s.start}.reverse
   end
 
   def ldap_search
@@ -52,7 +57,7 @@ class UsersController < ApplicationController
   end
 
   def create
-    if @user = User.find_by_login(params[:user][:login])
+    if @user = User.where(:login => params[:user][:login]).first
       if @user.departments.include? @department #if user is already in this department
         flash[:notice] = "This user already exists in this department."
       else
@@ -68,12 +73,13 @@ class UsersController < ApplicationController
       @user.set_random_password
       @user.departments << @department unless @user.departments.include?(@department)
       if @user.save
+        UserMailer.delay.registration_confirmation(@user)
         @user.set_payrate(params[:payrate], @department)
         UserProfileField.all.each do |field|
           UserProfileEntry.create!(:user_profile_id => @user.user_profile.id, :user_profile_field_id => field.id)
         end
-        if @user.auth_type == 'built-in'
-          @user.deliver_password_reset_instructions!(Proc.new {|n| AppMailer.deliver_new_user_password_instructions(n, current_department)})
+        if @user.auth_type == 'built-in' #What is going on here?
+          @user.deliver_password_reset_instructions!(Proc.new {|n| UserMailer.delay.new_user_password_instructions(n, current_department)})
           flash[:notice] = "Successfully created user and emailed instructions for setting password."
         else
           flash[:notice] = "Successfully created user."
@@ -87,7 +93,7 @@ class UsersController < ApplicationController
 
   def edit
     @user = User.find(params[:id])
-    @user_profile = UserProfile.find_by_user_id(@user.id)
+    @user_profile = UserProfile.where(:user_id => @user.id).first
     @user_profile_entries = @user.user_profile.user_profile_entries.select{|entry| entry.user_profile_field.department_id == @department.id }
   end
 
@@ -108,7 +114,7 @@ class UsersController < ApplicationController
     params[:user].delete(:role_ids)
     
     #So that the User Profile can be updated as well
-      @user_profile = UserProfile.find_by_user_id(User.find(params[:id]).id)
+      @user_profile = UserProfile.where(:user_id => User.find(params[:id]).id).first
       @user_profile_entries = params[:user_profile_entries]
 
       if @user_profile_entries
@@ -133,17 +139,18 @@ class UsersController < ApplicationController
           end
       end
 
-    @user_profile = UserProfile.find_by_user_id(@user.id)
+    @user_profile = UserProfile.where(:user_id => @user.id).first
     @user_profile_entries = @user_profile.user_profile_entries.select{|entry| entry.user_profile_field.department_id == @department.id }
+ 
     @user.set_random_password if params[:reset_password]
-    @user.deliver_password_reset_instructions!(Proc.new {|n| AppMailer.deliver_change_auth_type_password_reset_instructions(n)}) if @user.auth_type=='CAS' && params[:user][:auth_type]=='built-in'
+    @user.deliver_password_reset_instructions!(Proc.new {|n| UserMailer.delay.change_auth_type_password_reset_instructions(n)}) if @user.auth_type=='CAS' && params[:user][:auth_type]=='built-in'
     
     
     
     if @user.update_attributes(params[:user])
       @user.set_payrate(params[:payrate].gsub(/\$/,""), @department) if params[:payrate]
       flash[:notice] = "Successfully updated user."
-      @user.deliver_password_reset_instructions!(Proc.new {|n| AppMailer.deliver_admin_password_reset_instructions(n)}) if params[:reset_password]
+      @user.deliver_password_reset_instructions!(Proc.new {|n| UserMailer.delay.admin_password_reset_instructions(n)}) if params[:reset_password]
       redirect_to @user
     else
       render :action => 'edit'
@@ -212,7 +219,7 @@ class UsersController < ApplicationController
     file = params[:file]
     flash[:notice]="The users in red already exist in this department and should not be imported. The users in yellow exist in other departments. They can be imported, but we figured you should know."
     begin
-      @users = User.from_csv(file, :normal)
+      @users = User.import(file)
       @no_nav = true
     rescue Exception => e
       flash[:notice] = "The file you uploaded is invalid. Please make sure the file you upload is a csv file and the columns are in the right order."
@@ -228,7 +235,7 @@ class UsersController < ApplicationController
     @users=params[:users_to_import].collect{|i| params[:user][i]}
     failures = []
     @users.each do |u|
-      if @user = User.find_by_login(u[:login])
+      if @user = User.where(:login => u[:login]).first
         if @user.departments.include? @department #if user is already in this department
           #don't modify any data, as this is probably a mistake
           failures << {:user=>u, :reason => "User already exists in this department!"}
@@ -244,7 +251,7 @@ class UsersController < ApplicationController
         @user.set_random_password
         @user.departments << @department unless @user.departments.include?(@department)
         if @user.save
-          @user.deliver_password_reset_instructions!(Proc.new {|n| ArMailer.deliver_new_user_password_instructions(n, current_department)}) if @user.auth_type=='built-in'
+          @user.deliver_password_reset_instructions!(Proc.new {|n| UserMailer.delay.new_user_password_instructions_csv(n, current_department)}) if @user.auth_type=='built-in'
         else
           failures << {:user=>u, :reason => "Check all fields to make sure they\'re ok"}
         end

@@ -1,7 +1,7 @@
 <div class="admin_form">
   <fieldset class="index">
     <legend><%= title %></legend>
-    <% form_for (@location.new_record? ? [@department,@location] : @location) do |f| %>
+    <%= form_for (@location.new_record? ? [@department,@location] : @location) do |f| %>
       <%= f.error_messages %>
       <p>
         <%= f.label :name %>
@@ -11,6 +11,10 @@
         <%= f.label :short_name %>
         <%= f.text_field :short_name %>
       </p>
+      <p>
+		<%= f.label :description %>
+		<%= f.text_field :description %>
+	  </p>
       <p>
         <%= f.label :loc_group %>
         <%= f.collection_select(:loc_group_id, current_user.loc_groups_to_admin(@department), :id, :name, {:prompt => "Select a location group"}) %>
@@ -37,6 +41,10 @@
       <p>
         <%= f.label :active %>
         <%= f.check_box :active %>
+      </p>
+      <p>
+        <%= f.label "Payform Category" %>
+        <%= f.collection_select(:category_id, Category.all, :id, :name, {:prompt => "Select a payform category"}) %>
       </p>
       <p>
         <label>&#8200;</label>

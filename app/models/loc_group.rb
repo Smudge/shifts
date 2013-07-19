@@ -14,8 +14,16 @@ class LocGroup < ActiveRecord::Base
               :dependent => :destroy
   has_many :locations, :dependent => :destroy
 
-  before_validation_on_create :create_permissions
-  before_validation_on_update :update_permissions
+  # These make loc groups connect to the superclass notice, as well as its subclasses
+  has_and_belongs_to_many :announcements, :join_table => :loc_groups_notices, :association_foreign_key => :notice_id
+  has_and_belongs_to_many :links,         :join_table => :loc_groups_notices, :association_foreign_key => :notice_id
+  has_and_belongs_to_many :stickies,      :join_table => :loc_groups_notices, :association_foreign_key => :notice_id
+  has_and_belongs_to_many :notices
+  
+  scope :active, :conditions => {:active => true}
+  
+  before_validation(:on => :create) {:create_permissions}
+  before_validation(:on => :update) {:update_permissions}
 
   validates_presence_of :department
 
@@ -33,9 +41,25 @@ class LocGroup < ActiveRecord::Base
   end
   
   def roles
-      department.roles.select { |u| u.permissions.include?(signup_permission) }
+    department.roles.select { |u| u.permissions.include?(signup_permission) }
   end
   
+  def deactivate
+    self.active = false
+    self.save!
+    self.locations.each do |location|
+     location.deactivate 
+    end
+  end
+  
+  def activate
+    self.active = true
+    self.save!
+    self.locations.each do |location|
+      location.activate
+    end
+  end
+
   private
 
   def create_permissions

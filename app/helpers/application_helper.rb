@@ -1,6 +1,6 @@
-# Methods added to this helper will be available to all templates in the application.
-module ApplicationHelper
+# encoding: UTF-8
 
+module ApplicationHelper
   def link_toggle(id, name, speed = "slow")
     # "<a href='#' onclick=\"Element.toggle('%s'); return false;\">%s</a>" % [id, name]
     link_to_function name, "$('##{id}').slideToggle('#{speed}')"
@@ -127,7 +127,13 @@ module ApplicationHelper
   end
 
   def calculate_default_times_repeating_events
-    @default_start_date = Time.now.to_date
+    if params[:date]
+      #From the parameters, including the entire current week
+      @default_start_date = Date.parse(params[:date])
+    else
+      #The current week
+      @default_start_date = Time.now.to_date
+    end
     @repeating_event.start_time ||= @default_start_date.to_time + current_department.department_config.schedule_start.minutes
     @repeating_event.end_time ||= @default_start_date.to_time + current_department.department_config.schedule_end.minutes
     @range_start_time = Time.now.to_date + current_department.department_config.schedule_start.minutes
@@ -136,21 +142,37 @@ module ApplicationHelper
       @repeating_event.location_ids = [] << params[:location_id]
     end
   end
-
-	def observe_fields(fields)
-		#prepare a value of the :with parameter
-		with = "'"
-		for field in fields
-			with += field + "=’$(’#" + field + "’).is(':checked')"
-			with += " + " if field != fields.last
-		end
- 		with += "'"
-		#generate a call of the observer_field helper for each field
-		ret = "";
-		for field in fields
-			puts field
-			ret += observe_field(field.to_s, :url => {:controller => :templates, :action => "update_locations"}, :with => with, :on => "change")
+  
+  # TODO: observe_field deprecated in Rails 3; the following method should be rewritten with unobtrusive JS
+  
+  def observe_fields(fields)
+    #prepare a value of the :with parameter
+    with = "'"
+    for field in fields
+      with += field + "=’$(’#" + field + "’).is(':checked')"
+      with += " + " if field != fields.last
     end
-    return ret
-	end
+      with += "'"
+    #generate a call of the observer_field helper for each field
+    ret = "";
+    for field in fields
+      puts field
+      ret += observe_field(field.to_s, :url => {:controller => :templates, :action => "update_locations"}, :with => with, :on => "change")
+      end
+      return ret
+  end
+	
+  def navbar_highlight(controller_name)
+    navbar_hash = Hash[ "dashboard" => ["dashboard"],
+                        "departments" => ["departments", "app_configs", "department_configs", "locations", "loc_groups", "calendars", "application", "templates", "calendar_feeds", "time_slots"],
+                        "users" => ["users", "roles", "user_profiles", "superusers", "user_profile_fields"],
+                        "shifts" => ["shifts", "links", "notices", "data_objects", "stats", "announcements",  "data_entries", "data_fields", "data_types", "repeating_events", "report_items", "stickies", "tasks", "reports"],
+                        "payforms" => ["payforms", "payform_items", "punch_clocks", "punch_clock_sets", "payform_item_sets", "categories"]]
+    navbar_hash.select{|key, value| value.include?(controller_name) }.flatten.first
+  end
+
+  def normalize_str(string)
+    string.downcase.gsub( /[^a-zA-Z0-9_\.]/, '_')
+  end
+
 end

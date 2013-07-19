@@ -39,16 +39,15 @@ class SubRequest < ActiveRecord::Base
             new_shift.start = just_mandatory ? sub_request.mandatory_start : sub_request.start
           end
           new_shift.end = just_mandatory ? sub_request.mandatory_end : sub_request.end
-          UserSinksUserSource.delete_all("#{:user_sink_type.to_sql_column} = #{"SubRequest".to_sql} AND #{:user_sink_id.to_sql_column} = #{sub_request.id.to_sql}")
           sub_request.destroy
           email_start = new_shift.start.time
           email_end = new_shift.end.time
           Shift.delete_part_of_shift(old_shift, new_shift.start, new_shift.end)
           new_shift.save!
-          ArMailer.deliver(ArMailer.create_sub_taken_notification(sub_request, new_shift, new_shift.department))
+          UserMailer.delay.sub_taken_notification(sub_request, new_shift, new_shift.department)
           sub_watch_users = sub_request.potential_takers.select {|u| u.user_config.taken_sub_email}
           for user in sub_watch_users
-            ArMailer.deliver(ArMailer.create_sub_taken_watch(user, sub_request, new_shift, email_start, email_end, new_shift.department))
+            UserMailer.delay.sub_taken_watch(user, sub_request, new_shift, email_start, email_end, new_shift.department))
           end
           return true
         end
@@ -88,11 +87,6 @@ class SubRequest < ActiveRecord::Base
   #returns roles that currently have permission
   def roles_with_permission
      shift.location.loc_group.roles
-  end
-
-  def sub_name
-    sub_class = self.user_source_type.classify
-    sub_name = sub_class.find(self.user_source_id).name.to_s
   end
 
   def has_started?

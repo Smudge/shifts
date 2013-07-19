@@ -1,39 +1,45 @@
 <div id = "notice"></div>
 <% title "My Dashboard" %>
 
-
-
-
 <div id="left_stuff">
-  
-  
+
+
   <fieldset class="index" id="shifts">
     <legend>Your Shifts</legend>
-      <h4>Current Shift</h4>
+    <% if user_has_active_shift?%>
+	<h4>Current Shift </h4>
+	 <% end %>
       <%= render :partial => "shifts/user_options" %>
-
       <% unless @upcoming_shifts.empty? %>
+<br />
       <h4>My Upcoming Shifts</h4>
         <ul>
           <%= render :partial => 'shifts/upcoming_shift', :collection => @upcoming_shifts %>
         </ul>
       <% end %>
+      <br />
   </fieldset>
 
   <fieldset class="index" id="subs">
     <legend>Sub Requests</legend>
-    <% unless @subs_you_requested.empty? %>
-      <h4>Subs you've requested</h4>
-      <ul>
-        <%= (render :partial => 'shifts/upcoming_sub', :collection => @subs_you_requested) %>
-      </ul>
-    <% end %>
-    <% unless @subs_you_can_take.empty? %>
-      <h4>Subs You Can Take</h4>
+
+    <%unless @subs_you_requested.empty? and @subs_you_can_take.empty? %>
+      <% unless @subs_you_requested.empty? %>
+        <h4>Subs You've Requested</h4>
         <ul>
-          <%= (render :partial => 'shifts/upcoming_sub', :collection => @subs_you_can_take) %>
+          <%= (render :partial => 'shifts/upcoming_sub', :collection => @subs_you_requested) %>
         </ul>
+      <% end %>
+      <% unless @subs_you_can_take.empty? %>
+        <h4>Subs You Can Take</h4>
+          <ul>
+            <%= (render :partial => 'shifts/upcoming_sub', :collection => @subs_you_can_take) %>
+          </ul>
+      <% end %>
+    <% else %>
+          <em>There are no sub requests at this time.</em>
     <% end %>
+
 	<span style="float:right;text-align:right;margin-top:1em"><%= link_to "All Subs", sub_requests_path %></span>
   </fieldset>
 
@@ -45,152 +51,58 @@
       <%= image_tag("icons/clock_play.png", :class => "mini_icon") %>
       <%= link_to "Clock in", user_punch_clocks_path(current_user), :class => "action_with_icon", :method => :post %>
     <% end %>
+    <br /><br />
   </fieldset>
 
-  </div>
- 
-  <div id="right_stuff">
-    
-    <fieldset class ="index" id="notices_for_you">
-      <legend>Announcements</legend>
-        <%= render :partial => 'notices/dashboard' %>
-    </fieldset>
-    
-    <fieldset class="index" id="shifts">
-      <legend>Active Shifts</legend>
-        <%= render :partial => 'shifts/shifts_layout', :object => @signed_in_shifts %>
-    </fieldset>
-
-    <fieldset class="index" id="shift_stats">
-      <legend>Shift Statistics</legend>
-				<% @summary = current_user.summary_stats(Date.today - 7, Date.today) %>
-				<%= render :partial => 'stats/stats_summary', :object => @summary %>
-    </fieldset>
-
-    <% unless @watched_objects.empty? %>
+ <% unless @watched_objects.empty? %>
       <fieldset class="index" id="watched_objects">
-        <legend>Recent updates for your watched data objects</legend>
+        <legend>Watched Data Objects</legend>
           <%= render :partial => 'data_objects/data_objects_table', :collection => @watched_objects %>
       </fieldset>
     <% end %>
 
   </div>
 
+  <div id="right_stuff">
+
+    <fieldset class ="index" id="notices_for_you">
+      <legend>Announcements</legend>
+       <div id = "dashboard_notices"> <%= render :partial => 'notices/dashboard' %></div>
+		<br />
+		<%= link_to_post_a_sticky() %>
+		<%= link_to_post_an_announcement %>
+    </fieldset>
+
+    <fieldset class="index" id="shifts">
+      <legend>Active Shifts</legend>
+      <%unless @signed_in_shifts.empty? %>
+        <%= render :partial => 'shifts/shifts_layout', :object => @signed_in_shifts %>
+      <% else %>
+        <em>There are no active shifts at this time.</em>
+      <% end %>
+    </fieldset>
+
+    <fieldset class="index" id="shift_stats">
+      <legend>Shift Statistics</legend>
+				<% @summary = current_user.summary_stats(Date.today-1.month, Date.today) %>
+				<%= render :partial => 'stats/stats_summary', :object => @summary %>
+    </fieldset>
+  </div>
+
 <% unless current_user.user_config.view_loc_groups.empty? %>
   <fieldset class="index" id="schedule">
   <legend>Daily Schedule</legend>
-  <%= link_to "&lt;&lt; Previous", :date => (@current_date - 1)-%>
-  <span style="float:right;text-align:right;"><%= link_to "Next &gt;&gt;", :date => (@current_date + 1)%></span>
+  <%= link_to HTMLEntities.new.decode("&lt;&lt; Previous"), :date => (@current_date - 1)-%>
+  <span style="float:right;text-align:right;"><%= link_to HTMLEntities.new.decode("Next &gt;&gt;"), :date => (@current_date + 1)%></span>
   <%= render :partial => 'shifts/schedule/day', :object =>  @current_date %>
 </fieldset>
 <% end %>
 
 <div id="AJAX_status"></div><%# for AJAX status updates %>
 
-<script>
-  initialize("body");
+<%= javascript_tag do %>
+  newShiftPath = '<%= new_shift_path %>';
+  shiftsPath = '<%= shifts_path %>';
+<% end %>
 
-  function initialize(div){
-    $(div+' li.click_to_add_new').click(function (e) {
-      popup_new($(this), e, this);
-      return false;
-    });
-
-    $(div+' li.click_to_show').click(function (e) {
-      popup_show($(this), e);
-      return false;
-    });
-
-    // $(div+'div.click_to_show_sub').click(function (e) {
-    //   popup_show_sub($(this), e);
-    //   return false;
-    // });
-
-    $(div+' div.click_to_add_new').click(function (e) {
-      popup_generic_new($(this), e);
-      return false;
-    });
-
-    // $('li.click_to_edit').click(function (e) {
-    //   popup_edit($(this), e);
-    //   return false;
-    // });
-
-    //don't stop links from firing
-    // $(div+' li.click_to_show a').click(function (e) {
-    //   e.stopPropagation();
-    // });
-    //
-    // $(div+' li.click_to_edit a').click(function (e) {
-    //   e.stopPropagation();
-    // });
-  }
-
-  function popup_new(parent_element, e, raw_element){
-    $("#tooltip").remove();
-
-    var elementID = parent_element.attr('id');
-    var params = elementID.split("_", 2);
-    var locationID = params[0].substring(8); //remove "location" from id
-    var date = params[1];
-
-    //cursor position magic
-    var relX = e.pageX - getXOffset(parent_element.closest('.events').get(0));
-    var widthPercentage = relX / parent_element.closest('.events').width();
-
-    loading_tooltip(e.pageX, e.pageY);
-    $.ajax({data:"location_id="+locationID+"&date="+date+"&xPercentage="+widthPercentage, dataType:'script', type:'get', url:'<%= new_shift_path %>', async: false});
-  }
-
-  function popup_generic_new(parent_element, e){
-    $("#tooltip").remove();
-
-    var elementID = parent_element.attr('id');
-    var params = elementID.split("_", 2);
-    var locationID = params[0].substring(8); //remove "location" from id
-    var date = params[1];
-
-    loading_tooltip(e.pageX, e.pageY);
-    $.ajax({data:"location_id="+locationID+"&date="+date, dataType:'script', type:'get', url:'<%= new_shift_path %>', async: false});
-  }
-
-  function popup_show(parent_element, e){
-    $("#tooltip").remove();
-
-    var id = parent_element.attr('id').substring(5); //remove "shift" from id
-
-    loading_tooltip(e.pageX, e.pageY);
-    $.ajax({dataType:'script', type:'get', url:'<%= shifts_path %>/'+id, async: false});
-  }
-
-  // function popup_show_sub(parent_element, e){
-  //   $("#tooltip").remove();
-  //
-  //   var id = parent_element.attr('id').substring(3); //remove "shift" from id
-  //   alert('testing');
-  //   //loading_tooltip(e.pageX, e.pageY);
-  //   //$.ajax({dataType:'script', type:'get', url:'<%= shifts_path %>/'+id, async: false});
-  // }
-
-  // function popup_edit(parent_element, e){
-  //   $("#tooltip").remove();
-  //
-  //   var id = parent_element.attr('id').substring(8); //remove "timeslot" from id
-  //   loading_tooltip(e.pageX, e.pageY);
-  //   $.ajax({dataType:'script', type:'get', url:'<%= time_slots_path %>/'+id+'/edit', async: false});
-  // }
-
-  function loading_tooltip(x,y){
-    $('body').append("<div id='tooltip' style='position: absolute; left:"+x+"px; top:"+y+"px'>Loading...</div>");
-  }
-
-  function getXOffset(element){
-    var x = 0
-    while(element){
-        x += element.offsetLeft;
-        element = element.offsetParent;
-    }
-    return x;
-  }
-</script>
-
+<%= javascript_include_tag 'tooltip' %>

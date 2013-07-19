@@ -5,6 +5,7 @@
     <div id="group_type">
       <%= select_tag "view_options[group_type]", options_for_select(@group_type_options, @selected_type) %>
 
+    <%#TODO: Change this to UJS style when we get jQuery 1.6 working%>
     <%= observe_field('view_options_group_type',
         :url => { :controller => :data_objects,
                   :action => :index,
@@ -30,8 +31,9 @@
   <br>
   <% if current_user.is_admin_of?(current_department) %>
     <%= link_to "New Data Object", new_data_object_path %>
+    <br>
+    <%= link_to "New Data Type", new_data_type_path %>
   <% end %>
 <% else %>
   You must set up a <%= link_to_if current_user.is_admin_of?(current_department), "data type", new_data_type_path %> before you can create any data objects.
 <% end %>
-

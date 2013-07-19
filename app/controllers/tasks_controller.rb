@@ -3,10 +3,10 @@ class TasksController < ApplicationController
   # GET /tasks.xml
 
   def index
-    return unless user_is_admin_of(current_department)
+    #return unless user_is_admin_of(current_department)
     @tasks = Task.all
-    @active_tasks = Task.find(:all, :conditions => ["#{:active} = ?", true])
-    @inactive_tasks = Task.find(:all, :conditions => ["#{:active} = ?", false])
+    @active_tasks = Task.where("#{:active} = ?", true)
+    @inactive_tasks = Task.where("#{:active} = ?", false)
     
     respond_to do |format|
       format.html # index.html.erb
@@ -17,7 +17,7 @@ class TasksController < ApplicationController
   # GET /tasks/1
   # GET /tasks/1.xml
   def show
-    return unless user_is_admin_of(current_department)
+    #return unless user_is_admin_of(current_department)
     @task = Task.find(params[:id])
     respond_to do |format|
       format.html # show.html.erb
@@ -51,7 +51,7 @@ class TasksController < ApplicationController
     respond_to do |format|
       if @task.save
         flash[:notice] = 'Task was successfully created.'
-        format.html { redirect_to(@task) }
+        format.html { redirect_to(params[:add_another] ? new_task_path : @task) }
         format.xml  { render :xml => @task, :status => :created, :location => @task }
       else
         format.html { render :action => "new" }
@@ -121,7 +121,7 @@ class TasksController < ApplicationController
     @start = interpret_start
     @end = interpret_end
     @task = Task.find(params[:id])
-    @shifts = ShiftsTask.find(:all, :conditions => {:task_id => @task.id, :missed => false})
+    @shifts = ShiftsTask.where(:task_id => @task.id, :missed => false)
     @shifts_tasks = @shifts.select{|st| st.created_at < @end && st.created_at > @start}
   end
   
@@ -129,7 +129,7 @@ class TasksController < ApplicationController
     @start = interpret_start
     @end = interpret_end
     @task = Task.find(params[:id])
-    @shifts = ShiftsTask.find(:all, :conditions => {:task_id => @task.id, :missed => true})
+    @shifts = ShiftsTask.where(:task_id => @task.id, :missed => true)
     @shifts_tasks = @shifts.select{|st| st.created_at < @end && st.created_at > @start}
   end
   

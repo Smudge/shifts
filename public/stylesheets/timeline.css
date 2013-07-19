@@ -1,4 +1,5 @@
 
+
 ul.events li {                        color: #000; }
 ul.events li.timeslot {
     background: #eee;
@@ -29,6 +30,9 @@ div.timeline-data {
     float:right;
     position:relative;
     width: 93%;
+}
+
+div.timeline-data.timeslots {
     height: 100%;
 }
 
@@ -38,6 +42,7 @@ div.timeline div.days {
     width: 7%;
     height: 100%;
 }
+
 div.timeline div.day {
     border-bottom: 1px solid #fff;
     width: 100%;
@@ -190,16 +195,15 @@ div#tooltip{
 	text-align: left;
 	z-index: 1000;
 	display: block;
-	background: #ddd;
+	background: #DDDDFF;
 	color: #000;
 	padding: 5px;
 	padding-top:15px;
 	min-width: 200px;
 	font-style: normal;
 	font-weight: normal;
-    font-family: Verdana, Arial, serif;
+    font-family: "Trebuchet MS", Helvetica, sans-serif;	
 	font-size: 12px;
-	border: 1px solid gray;
 }
 
 div#tooltip strong{
@@ -262,7 +266,7 @@ div.loading{
 	padding: 5px;
 	font-style: normal;
 	font-weight: normal;
-    font-family: Verdana, Arial, serif;
+  font-family: "Trebuchet MS", Helvetica, sans-serif;	
 	font-size: 12px;
 	border: 1px solid gray;
 }

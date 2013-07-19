@@ -10,14 +10,20 @@ class Calendar < ActiveRecord::Base
 
   validates_uniqueness_of :name, :scope => :department_id
 
-  named_scope :active, lambda {{ :conditions => {:active => true}}}
-  named_scope :public, lambda {{ :conditions => {:public => true}}}
+  scope :active, lambda {{ :conditions => {:active => true}}}
+  scope :public, lambda {{ :conditions => {:public => true}}}
 
+  def self.active_in(department, start_date = Time.now, end_date = Time.now)
+    active = Calendar.where("department_id = ? and start_date <= ? and end_date >= ? and active is true", department.id, start_date.utc, end_date.utc)
+    default = Calendar.where("department_id = ? and `default` is true", department.id).first()
+    [default, active].flatten
+  end
+  
   def self.destroy_self_and_future(calendar)
     default_id = calendar.department.calendars.default.id
     TimeSlot.delete_all("#{:calendar_id.to_sql_column} = #{calendar.id.to_sql} AND #{:end.to_sql_column} > #{Time.now.utc.to_sql}")
     TimeSlot.update_all("#{:calendar_id.to_sql_column} = #{default_id.to_sql}", "#{:calendar_id.to_sql_column} = #{calendar.id.to_sql}")
-    Shift.mass_delete_with_dependencies(Shift.find(:all, :conditions => ["#{:calendar_id.to_sql_column} = #{calendar.id.to_sql} AND #{:end.to_sql_column} > #{Time.now.utc.to_sql}"]))
+    Shift.mass_delete_with_dependencies(Shift.where("#{:calendar_id.to_sql_column} = #{calendar.id.to_sql} AND #{:end.to_sql_column} > #{Time.now.utc.to_sql}"))
     Shift.update_all("#{:calendar_id.to_sql_column} = #{default_id.to_sql}", "#{:calendar_id.to_sql_column} = #{calendar.id.to_sql}")
     calendar.destroy
   end
@@ -47,27 +53,27 @@ class Calendar < ActiveRecord::Base
       new_shift.calendar = new_calendar
       new_shift.active = new_calendar.active
       new_shift.power_signed_up = true
-      new_shift.save!
+      new_shift.save(false)
     end
     errors
   end
 
-  #def self.wipe_range(start_time, end_time, wipe_timeslots, wipe_shifts, loc_ids, cal_ids)
-   # if wipe_timeslots
-    #  loc_ids.each do |loc_id|
-     #   cal_ids.each do |cal_id|
-      #    TimeSlot.delete_all("#{:start.to_sql_column} > #{start_time.utc.to_sql} AND #{:start.to_sql_column} < #{end_time.to_sql} AND #{:calendar_id.to_sql_column} = #{cal_id.to_sql} AND #{:location_id.to_sql_column} = #{loc_id.to_sql}")
-       # end
-      #end
-    #end
-    #if wipe_shifts
-     # loc_ids.each do |loc_id|
-      #  cal_ids.each do |cal_id|
-       #   Shift.mass_delete_with_dependencies(Shift.find(:all, :conditions => ["#{:start.to_sql_column} > #{start_time.utc.to_sql} AND #{:start.to_sql_column} < #{end_time.to_sql} AND #{:calendar_id.to_sql_column} = #{cal_id.to_sql} AND #{:location_id.to_sql_column} = #{loc_id.to_sql}"]))
-      #  end
-      #end
-  #  end
-#  end
+  def self.wipe_range(start_time, end_time, wipe_timeslots, wipe_shifts, loc_ids, cal_ids)
+    if wipe_timeslots
+      loc_ids.each do |loc_id|
+        cal_ids.each do |cal_id|
+          TimeSlot.delete_all("#{:start.to_sql_column} > #{start_time.utc.to_sql} AND #{:start.to_sql_column} < #{end_time.to_sql} AND #{:calendar_id.to_sql_column} = #{cal_id.to_sql} AND #{:location_id.to_sql_column} = #{loc_id.to_sql}")
+        end
+      end
+    end
+    if wipe_shifts
+      loc_ids.each do |loc_id|
+        cal_ids.each do |cal_id|
+          Shift.mass_delete_with_dependencies(Shift.where("#{:start.to_sql_column} > #{start_time.utc.to_sql} AND #{:start.to_sql_column} < #{end_time.to_sql} AND #{:calendar_id.to_sql_column} = #{cal_id.to_sql} AND #{:location_id.to_sql_column} = #{loc_id.to_sql}"))
+        end
+      end
+    end
+  end
 
   def deactivate
     self.active = false
@@ -78,7 +84,7 @@ class Calendar < ActiveRecord::Base
 
   def activate(wipe)
     self.active = true
-    conflicts = Shift.check_for_conflicts(Shift.find(:all, :conditions => ["calendar_id = #{self.id.to_sql} AND start > #{Time.now.utc.to_sql}"]), wipe) + TimeSlot.check_for_conflicts(TimeSlot.find(:all, :conditions=>["calendar_id = #{self.id.to_sql} AND start > #{Time.now.utc.to_sql}"]), wipe)
+    conflicts = Shift.check_for_conflicts(Shift.where("calendar_id = #{self.id.to_sql} AND start > #{Time.now.utc.to_sql}"), wipe) + TimeSlot.check_for_conflicts(TimeSlot.where("calendar_id = #{self.id.to_sql} AND start > #{Time.now.utc.to_sql}"), wipe)
     if conflicts.empty?
       TimeSlot.update_all("#{:active.to_sql_column} = #{true.to_sql}", "#{:calendar_id.to_sql_column} = #{self.id.to_sql} AND #{:start.to_sql_column} > #{Time.now.utc.to_sql}")
       Shift.update_all("#{:active.to_sql_column} = #{true.to_sql}", "#{:calendar_id.to_sql_column} = #{self.id.to_sql} AND #{:start.to_sql_column} > #{Time.now.utc.to_sql}")
