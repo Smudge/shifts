@@ -5,9 +5,8 @@ namespace :email do
       @users = department.users.select {|u| if u.is_active?(department) then u.email end }
       users_reminded = []
       for user in @users
-        if user.due_payform_email
-        ArMailer.deliver(ArMailer.create_due_payform_reminder(user, message, department))
-        users_reminded << "#{user.name} (#{user.login})"
+        if user.user_config.send_due_payform_email
+        UserMailer.delay.due_payform_reminder(user, message, department)
         end
       end
       puts "#{users_reminded.length} users in the #{department.name} department "  +
@@ -29,8 +28,8 @@ namespace :email do
           for payform in unsubmitted_payforms
             weeklist += payform.date.strftime("\t%b %d, %Y\n")
           end
-          ArMailer.deliver(ArMailer.create_late_payform_warning(user, message.gsub("@weeklist@", weeklist), department))
-          users_warned << "#{user.name} (#{user.login}) <pre>#{email.encoded}</pre>"
+          UserMailer.delay.late_payform_warning(user, message.gsub("@weeklist@", weeklist), department)
+          users_warned << "#{user.name} (#{user.login}) <pre>#{user.email}</pre>"
         end
       end  # currently I am not doing anything with the list of users, it should be displayed somewhere
       puts "#{users_warned.length} users in the #{department.name} department "  +
@@ -40,7 +39,7 @@ namespace :email do
   #rake part
   desc "Send automatic reminders for due payforms"
 
-  task (:late_payform_warnings => :environment) do
+  task :late_payform_warnings => :environment do
     departments_that_want_users_warned = Department.all.select { |d| d.department_config.auto_warn }
     for dept in departments_that_want_users_warned
       send_warnings(dept)
@@ -49,7 +48,7 @@ namespace :email do
 
   desc "Send automatic warnings for late payforms"
 
-  task (:payform_reminders => :environment) do
+  task :payform_reminders => :environment do
     departments_that_want_users_reminded = Department.all.select { |d| d.department_config.auto_remind }
     for dept in departments_that_want_users_reminded
       send_reminders(dept)

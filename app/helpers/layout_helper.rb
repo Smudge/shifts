@@ -4,12 +4,12 @@
 #   helper :layout
 module LayoutHelper
   def title(page_title, show_title = true)
-    @content_for_title = page_title.to_s
+    content_for(:title) { page_title.to_s }
     @show_title = show_title
   end
 
   def subtitle(subtitle)
-    @content_for_subtitle = subtitle.to_s
+    content_for(:subtitle) { subtitle.to_s }
   end
 
   def show_title?
@@ -25,16 +25,7 @@ module LayoutHelper
   def inside_layout(layout, &block)
     layout = layout.include?('/') ? layout : "layouts/#{layout}"
     @template.instance_variable_set('@content_for_layout', capture(&block))
-    concat(@template.render( :file => layout, :use_full_path => true ))
-  end
-
-  def stylesheet(*args)
-    content_for(:head) { stylesheet_link_tag(*args.map(&:to_s)) }
-  end
-
-  def javascript(*args)
-    args = args.map { |arg| arg == :defaults ? arg : arg.to_s }
-    content_for(:head) { javascript_include_tag(*args) }
+    concat(@template.render( file: layout, use_full_path: true ))
   end
 
   def tab(str)

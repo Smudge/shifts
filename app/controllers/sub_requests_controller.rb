@@ -6,8 +6,18 @@ class SubRequestsController < ApplicationController
       @subs=@shift.sub_requests
       @title_add=" for " + @shift.user.name + "'s shift in " + @shift.location.name + " on " + @shift.start.to_s(:gg)
       @index_link = true
-    else
-      @subs = SubRequest.find(:all, :conditions => ["end >= ?", Time.now], :order => 'start')
+    elsif params[:include_past] #all sub requests ever (slow)
+      if params[:include_past] == "1"
+        @subs = SubRequest.all.sort_by{|s| s.start}.reverse
+        @title_add=" Index"
+        @index_link=false
+      else #all future sub requests
+        @subs = SubRequest.where("end >= ?", Time.now).order('start')
+        @title_add=" Index"
+        @index_link=false
+      end
+    else #all future sub requests
+      @subs = SubRequest.where("end >= ?", Time.now).order('start')
       @title_add=" Index"
       @index_link=false
     end
@@ -29,10 +39,16 @@ class SubRequestsController < ApplicationController
   end
 
   def new
-    @sub_request = SubRequest.new(:shift_id => params[:shift_id])
-    @sub_request.mandatory_start = @sub_request.start = @sub_request.shift.start
-    @sub_request.mandatory_end = @sub_request.end = @sub_request.shift.end
-    return unless user_is_owner_or_admin_of(@sub_request.shift, current_department)    #is 'return unless' unnessecary here? -Bay
+    shift = Shift.find_by_id(params[:shift_id])
+    if shift && shift.scheduled? #avoids attempting to call for start times of a non-existant shift
+      @sub_request = SubRequest.new(shift_id: params[:shift_id])
+      @sub_request.mandatory_start = @sub_request.start = @sub_request.shift.start
+      @sub_request.mandatory_end = @sub_request.end = @sub_request.shift.end
+      return unless user_is_owner_or_admin_of(@sub_request.shift, current_department)    #is 'return unless' unnessecary here? -Bay
+    else
+      flash[:notice] = 'Sub request cannot be created for an unscheduled shift.'
+      redirect_to dashboard_path
+    end
   end
 
   def edit
@@ -44,7 +60,6 @@ class SubRequestsController < ApplicationController
     parse_date_and_time_output(params[:sub_request])
     join_date_and_time(params[:sub_request])
     @sub_request = SubRequest.new(params[:sub_request])
-#    @sub_request.join_date_and_time
     @sub_request.shift = Shift.find(params[:shift_id])
     unless params[:list_of_logins].empty?
       params[:list_of_logins].split(",").each do |l|
@@ -54,24 +69,23 @@ class SubRequestsController < ApplicationController
             @sub_request.requested_users << user
           end
         end
-        @sub_request.requested_users << User.find_by_login(l[0]) if l.length == 1
+        @sub_request.requested_users << User.where(login: l[0]).first if l.length == 1
       end
     end
     unless @sub_request.save
-      render :action => "new"
+      render action: "new"
     else
       flash[:notice] = 'Sub request was successfully created.'
       @users = @sub_request.potential_takers
       for user in @users
-        ArMailer.deliver(ArMailer.create_sub_created_notify(user, @sub_request))
+        UserMailer.sub_created_notify(user, @sub_request)
       end
-      redirect_to :action => "show", :id => @sub_request
+      redirect_to action: "show", id: @sub_request
     end
   end
 
   def update
     @sub_request = SubRequest.find(params[:id])
-#    @sub_request.join_date_and_time
     return unless user_is_owner_or_admin_of(@sub_request.shift, current_department)
     begin
       SubRequest.transaction do
@@ -84,7 +98,7 @@ class SubRequestsController < ApplicationController
                     @sub_request.requested_users << user
                   end
                 end
-                @sub_request.requested_users << User.find_by_login(l[0]) if l.length == 1
+                @sub_request.requested_users << User.where(login: l[0]).first if l.length == 1
              end
            end
           parse_date_and_time_output(params[:sub_request])
@@ -93,21 +107,20 @@ class SubRequestsController < ApplicationController
           @sub_request.save!
         end
       rescue Exception => e
-        render :action => "edit", :id => @sub_request
+        render action: "edit", id: @sub_request
       else
         flash[:notice] = 'Sub Request was successfully updated.'
-        redirect_to :action => "show", :id => @sub_request
+        redirect_to action: "show", id: @sub_request
       end
   end
 
   def destroy
     @sub_request = SubRequest.find(params[:id])
     return unless user_is_owner_or_admin_of(@sub_request.shift, current_department)
-    
+
     @shift = @sub_request.shift
-    
+
     @sub_request.destroy
-    UserSinksUserSource.delete_all("user_sink_type = 'SubRequest' AND user_sink_id = #{params[:id].to_sql}")
     #the user can cancel a sub request and sign into their shift
     if params[:sign_in]
       flash[:notice] = "Successfully destroyed sub request. You can now sign into your shift."
@@ -149,10 +162,9 @@ class SubRequestsController < ApplicationController
       else
         flash[:error] = e.message.gsub("Validation failed: ", "")
       end
-      render :action => "get_take_info"
+      render action: "get_take_info"
      end
   end
 
 
 end
-

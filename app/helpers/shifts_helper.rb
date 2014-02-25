@@ -10,9 +10,20 @@ module ShiftsHelper
     @dept_start_hour ||= current_department.department_config.schedule_start / 60
     @dept_end_hour ||= current_department.department_config.schedule_end / 60
     @hours_per_day ||= (@dept_end_hour - @dept_start_hour)
+    @schedule_width ||= (3600.0 * @hours_per_day)
 
-    left = (((after ? after : shift.start) - (shift.start.beginning_of_day + @dept_start_hour.hours))/3600.0)/@hours_per_day*100
-    width = ((shift.end - (after ? after : shift.start))/3600.0) / @hours_per_day * 100
+    if !shift.end
+      shift.end = Time.now
+    elsif shift.end <= shift.start + current_department.department_config.time_increment.minutes
+      shift.end = shift.start + current_department.department_config.time_increment.minutes
+    end
+
+    schedule_start_time = shift.start.change(hour: @dept_start_hour)
+    draw_start_time = after || shift.start
+
+    left  = 100 * (draw_start_time - schedule_start_time) / @schedule_width
+    width = 100 * (shift.end - draw_start_time) / @schedule_width
+
     if left < 0
       width += left
       left = 0
@@ -58,7 +69,11 @@ module ShiftsHelper
       shifts.each do |shift|
         time = shift.start
         time = time.hour*60+time.min
-        end_time = shift.end
+        if shift.end
+          end_time = shift.end
+        else
+          end_time = Time.now
+        end
         end_time = end_time.hour*60+end_time.min
         end_time += (24*60) if end_time <= time #for slots ending at/after midnight
         while (time < end_time)
@@ -93,6 +108,10 @@ module ShiftsHelper
     end
   end
 
+  def staffed?(time, location)
+    @open_at[time.to_s(:am_pm)] && people_count[time.to_s(:am_pm)] < 1
+  end
+
   def min_staff_not_met?(time, location)
     @open_at[time.to_s(:am_pm)] && people_count[time.to_s(:am_pm)] < location.min_staff
   end
@@ -103,28 +122,27 @@ module ShiftsHelper
   end
 
 #calculates default_start/end and range_start/end_time
-  def calculate_default_times
+  def calculate_default_times_shifts
     if @shift.new_record? #true for new html&tooltip
       @default_start_date = (params[:date] ? Time.parse(params[:date]) : Time.now).to_date
     else # true for edit html&tooltip
       @default_start_date = @shift.start
     end
-    
+
     #set default range for time_select box. Not limited by time_slot since user not in ToolTip view
     #the date doesn't matter for range_start_time, only the time
       @range_start_time = Date.today.to_time + current_department.department_config.schedule_start.minutes
-      @range_end_time = Date.today.to_time  + current_department.department_config.schedule_end.minutes 
+      @range_end_time = Date.today.to_time  + current_department.department_config.schedule_end.minutes
 
     if params[:xPercentage] #Using ToolTip view
         @shift.start = @default_start_date
-        @dept_start_minutes ||= current_department.department_config.schedule_start
-        @dept_end_minutes ||= current_department.department_config.schedule_end
-        @minutes_per_day ||= (@dept_end_minutes - @dept_start_minutes)
-        @shift.start += @dept_start_minutes.minutes
-        @shift.start += (@minutes_per_day * params[:xPercentage].to_f / 60).to_int * 3600 #truncates the hour
+        config = current_department.department_config
+        minutes_per_day = config.schedule_end - config.schedule_start
+        @shift.start += config.schedule_start
+        @shift.start += (minutes_per_day * params[:xPercentage].to_f / 60).to_int * 3600 #truncates the hour
         #if the time slot starts off of the hour (at 9:30), this is not ideal because it will select either 9:00 or 10:00 and the following hour. We need timeslot validation first.
         #if the schedule starts at 9:30, I'm not sure what happens ~Casey
-        @shift.end = @shift.start + 1.hour   
+        @shift.end = @shift.start + 1.hour
       #limit time_select range to valid time_slots (note: this only applys to ToolTip view)
         timeslot_start = TimeSlot.overlaps(@shift.start, @shift.end).ordered_by_start.first
         timeslot_end = TimeSlot.overlaps(@shift.start, @shift.end).ordered_by_start.last
@@ -132,7 +150,7 @@ module ShiftsHelper
           @range_start_time = timeslot_start.start
           @range_end_time = timeslot_end.end
         end
-    else   # Not using ToolTip View 
+    else   # Not using ToolTip View
       #start already exists when editing, this just sets it for the new html view
         @shift.start ||= (params[:date] ? Time.parse(params[:date]) : Time.now).to_date.to_time + current_department.department_config.schedule_start.minutes
         @shift.end ||= @shift.start + 1.hour
@@ -166,9 +184,9 @@ end
     #                             day.beginning_of_day + @dept_end_hour.hours, @time_increment.minutes, locations.map{|l| l.id})
 
     @visible_locations ||= current_user.user_config.view_loc_groups.collect{|l| l.locations}.flatten
-    #adding the option to view unscheduled shifts   
+    #adding the option to view unscheduled shifts
     if current_department.department_config.unscheduled_shifts == true
-        shifts = Shift.active.in_locations(@visible_locations).on_day(day) #TODO: .active
+      shifts = Shift.active.in_locations(@visible_locations).on_day(day) #TODO: .active
     else
       shifts = Shift.active.in_locations(@visible_locations).on_day(day).scheduled
     end
@@ -193,12 +211,23 @@ end
     rejected = []
     location_row = 0
 
+#much of this logic goes toward having three rows in the TTO - 'rejected' just means rejected from the current line, being placed instead on a lower line. Nothing should be permanently 'rejected' in this process.
     until shifts.empty?
       shift = shifts.shift
+      if !shift.end
+        shift.end = Time.now
+      elsif shift.end <= shift.start + current_department.department_config.time_increment.minutes
+        shift.end = shift.start + current_department.department_config.time_increment.minutes
+      end
       @location_rows[shift.location][location_row] = [shift]
       (0...shifts.length).each do |i|
         if shift.location == shifts.first.location
-          if shift.end > shifts.first.start
+          if shift.end
+            shift_end = shift.end
+          else
+            shift_end = Time.now
+          end
+          if shift_end > shifts.first.start
             rejected << shifts.shift
           else
             shift = shifts.shift
@@ -236,11 +265,11 @@ end
 
     #different calendars are different colors
     unless defined? @color
-      @color_array ||= ["9f9", "9ff", "ff9", "f9f", "f99", "99f", "399","933","393","c60","60c","0c6","6c0","c06","06c"]
+      @color_array = ["9f9", "9ff", "ff9", "f9f", "f99", "99f"]
       @color ||= {}
       @calendar = (params[:calendar] == "true" ? nil : Calendar.find(params[:calendar]) )
       @calendars ||= (params[:calendar] == "true" ? @department.calendars : [Calendar.find(params[:calendar])] )
-      @calendars.each_with_index{ |calendar, i| @color[calendar] ||= @color_array[i]}
+      @calendars.each_with_index{ |calendar, i| @color[calendar] ||= @color_array[i%6]}
     end
 
     #for AJAX; needs cleanup if we have time
@@ -329,4 +358,3 @@ end
   end
 
 end
-

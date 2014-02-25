@@ -1,58 +1,9 @@
 class CalendarsController < ApplicationController
   layout 'calendar'
-  before_filter :require_department_admin, :only => [:new, :create, :edit, :update, :destroy]
+  before_filter :require_department_admin, only: [:new, :create, :edit, :update, :destroy]
 
   def index
     @calendars = (current_user.is_admin_of?(@department) ? @department.calendars : @department.calendars.public)
-
-    # @period_start = params[:date] ? Date.parse(params[:date]).previous_sunday : Date.today.previous_sunday
-    # # figure out what days to display based on user preferences
-    # if params[:date].blank? and (current_user.user_config.view_week != "" and current_user.user_config.view_week != "whole_period")
-    #   # only if default view and non-standard setting
-    #   if current_user.user_config.view_week == "current_day"
-    #     @day_collection = [Date.today]
-    #   elsif current_user.user_config.view_week == "remainder"
-    #     if @department.department_config.weekend_shifts #show weekends
-    #       @day_collection = Date.today...(@period_start+7)
-    #     else
-    #       @day_collection = Date.today...(@period_start+6)
-    #     end
-    #   end
-    # elsif @department.department_config.weekend_shifts #show weekends
-    #   @day_collection = @period_start...(@period_start+7)
-    # else #no weekends
-    #   @day_collection = (@period_start+1)...(@period_start+6)
-    # end
-    # 
-    # @loc_group_select = {}
-    # @loc_group_select[@department.id] = @department.loc_groups #{}
-    # @visible_loc_groups = current_user.user_config.view_loc_groups
-    # @selected_loc_groups = @visible_loc_groups.collect{|l| l.id}
-    # @visible_locations = current_user.user_config.view_loc_groups.collect{|l| l.locations}.flatten
-    # 
-    # # now all this stuff is collected in day_preprocessing helper
-    # # @shifts = []
-    # # @time_slots = []
-    # # @calendars.each do |calendar|
-    # #   #@shifts += calendar.shifts.in_locations(@visible_locations).on_days(@period_start, @period_start+6).scheduled
-    # #   #@shifts.store(calendar, calendar.shifts.in_locations(@visible_locations).on_days(@period_start, @period_start+6).scheduled.group_by{|t| t.start.strftime("%Y-%m-%d")})
-    # #   #@time_slots.store(calendar, calendar.time_slots.in_locations(@visible_locations).on_days(@period_start, @period_start+6).group_by{|t| t.start.strftime("%Y-%m-%d")})
-    # #   @time_slots += calendar.time_slots.in_locations(@visible_locations).on_days(@period_start, @period_start+6)
-    # # end
-    # # #@shifts = @shifts.group_by{|s| s.start.strftime("%Y-%m-%d")}
-    # # #@time_slots = @time_slots.group_by{|t| t.start.strftime("%Y-%m-%d")}
-    # 
-    # 
-    # @dept_start_hour = current_department.department_config.schedule_start / 60
-    # @dept_end_hour = current_department.department_config.schedule_end / 60
-    # @hours_per_day = (@dept_end_hour - @dept_start_hour)
-    # @time_increment = current_department.department_config.time_increment
-    # @blocks_per_hour = 60/@time_increment.to_f
-    # 
-    # #get calendar colors
-    # @color_array = ["9f9", "9ff", "ff9", "f9f", "f99", "99f"]
-    # @color = {}
-    # @calendars.each_with_index{ |calendar, i| @color[calendar] ||= @color_array[i]}
     index_prep
   end
 
@@ -65,7 +16,7 @@ class CalendarsController < ApplicationController
     end
     @calendars = [@calendar]
     index_prep
-    render :action => 'index'
+    render action: 'index'
   end
 
   def new
@@ -79,7 +30,7 @@ class CalendarsController < ApplicationController
       flash[:notice] = "Successfully created calendar."
       redirect_to calendars_path
     else
-      render :action => 'new'
+      render action: 'new'
     end
   end
 
@@ -93,7 +44,7 @@ class CalendarsController < ApplicationController
       flash[:notice] = "Successfully updated calendar."
       redirect_to @calendar
     else
-      render :action => 'edit'
+      render action: 'edit'
     end
   end
 
@@ -117,7 +68,7 @@ class CalendarsController < ApplicationController
     rescue Exception => e
       @errors = e.message.gsub("Validation failed:", "").split(",")
       @calendar = @new_calendar.clone
-      render :action => 'prepare_copy'
+      render action: 'prepare_copy'
     end
   end
 
@@ -166,10 +117,10 @@ class CalendarsController < ApplicationController
     end
     if @problems
       @problems = @problems.split(",")
-      render :action => "warn"
+      render action: "warn"
     else
       flash[:notice] = "The calendar was successfully #{@calendar.active ? 'activated' : 'deactivated'}"
-      redirect_to :action => "index"
+      redirect_to action: "index"
     end
   end
   
@@ -196,15 +147,15 @@ class CalendarsController < ApplicationController
         @day_collection = [Date.today]
       elsif current_user.user_config.view_week == "remainder"
         if @department.department_config.weekend_shifts #show weekends
-          @day_collection = Date.today...(@period_start+7)
+          @day_collection = (Date.today...(@period_start+7)).to_a
         else
-          @day_collection = Date.today...(@period_start+6)
+          @day_collection = (Date.today...(@period_start+6)).to_a
         end
       end
     elsif @department.department_config.weekend_shifts #show weekends
-      @day_collection = @period_start...(@period_start+7)
+      @day_collection = (@period_start...(@period_start+7)).to_a
     else #no weekends
-      @day_collection = (@period_start+1)...(@period_start+6)
+      @day_collection = ((@period_start+1)...(@period_start+6)).to_a
     end
 
     @loc_group_select = {}
@@ -213,19 +164,6 @@ class CalendarsController < ApplicationController
     @selected_loc_groups = @visible_loc_groups.collect{|l| l.id}
     @visible_locations = current_user.user_config.view_loc_groups.collect{|l| l.locations}.flatten.select{|l| l.active?}
 
-    # now all this stuff is collected in day_preprocessing helper
-    # @shifts = []
-    # @time_slots = []
-    # @calendars.each do |calendar|
-    #   #@shifts += calendar.shifts.in_locations(@visible_locations).on_days(@period_start, @period_start+6).scheduled
-    #   #@shifts.store(calendar, calendar.shifts.in_locations(@visible_locations).on_days(@period_start, @period_start+6).scheduled.group_by{|t| t.start.strftime("%Y-%m-%d")})
-    #   #@time_slots.store(calendar, calendar.time_slots.in_locations(@visible_locations).on_days(@period_start, @period_start+6).group_by{|t| t.start.strftime("%Y-%m-%d")})
-    #   @time_slots += calendar.time_slots.in_locations(@visible_locations).on_days(@period_start, @period_start+6)
-    # end
-    # #@shifts = @shifts.group_by{|s| s.start.strftime("%Y-%m-%d")}
-    # #@time_slots = @time_slots.group_by{|t| t.start.strftime("%Y-%m-%d")}
-
-
     @dept_start_hour = current_department.department_config.schedule_start / 60
     @dept_end_hour = current_department.department_config.schedule_end / 60
     @hours_per_day = (@dept_end_hour - @dept_start_hour)
@@ -233,8 +171,8 @@ class CalendarsController < ApplicationController
     @blocks_per_hour = 60/@time_increment.to_f
 
     #get calendar colors
-    @color_array = ["9f9", "9ff", "ff9", "f9f", "f99", "99f","9f9", "9ff", "ff9", "f9f", "f99", "99f","9f9", "9ff", "ff9", "f9f", "f99", "99f","9f9", "9ff", "ff9", "f9f", "f99", "99f"]
+    @color_array = ["9f9", "9ff", "ff9", "f9f", "f99", "99f"]
     @color = {}
-    @calendars.each_with_index{ |calendar, i| @color[calendar] ||= @color_array[i]}
+    @calendars.each_with_index{ |calendar, i| @color[calendar] ||= @color_array[i%6]}
   end
 end

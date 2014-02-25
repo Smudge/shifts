@@ -19,6 +19,8 @@ class DataObjectsController < ApplicationController
       @selected_type = @group_type_options.select{|a|a.include? params[:group_type]}.flatten
     end
     @types_objects_hash = @data_objects.group_by &:data_type
+    #this is for users who are not admins
+    @personal_types_objects_hash = DataObject.find(current_user.user_config.watched_data_objects.split(', ')).group_by(&:data_type)
     respond_to do |format|
       format.html #{ update_page{|page| page.hide 'submit'}}
       format.js
@@ -30,14 +32,14 @@ class DataObjectsController < ApplicationController
     require_department_membership(@data_object.department)
     @data_fields = @data_object.data_type.data_fields
     offset = params[:offset] || 0
+    @start_date = 1.week.ago
+    @end_date = Date.today
     if params[:start] && params[:end]
-      startdate = Date.civil(params[:start][:year].to_i, params[:start][:month].to_i, params[:start][:day].to_i)
-      enddate = Date.civil(params[:end][:year].to_i, params[:end][:month].to_i, params[:end][:day].to_i)
-      @data_entries = DataEntry.for_data_object(@data_object).between_days(startdate, enddate)
+      @start_date = Date.civil(params[:start][:year].to_i, params[:start][:month].to_i, params[:start][:day].to_i)
+      @end_date = Date.civil(params[:end][:year].to_i, params[:end][:month].to_i, params[:end][:day].to_i)
+      @data_entries = DataEntry.for_data_object(@data_object).between_days(@start_date, @end_date)
     else
-      @data_entries = DataEntry.find(:all, :conditions => {:data_object_id => @data_object.id},
-                                           :limit => 50, :offset => offset,
-                                           :order => 'created_at DESC')
+      @data_entries = DataEntry.where(data_object_id: @data_object.id).limit(50).offset(offset).order("created_at DESC")
     end
   end
 
@@ -50,13 +52,13 @@ class DataObjectsController < ApplicationController
   def create
     @data_object = DataObject.new(params[:data_object])
     @data_object.data_type_id = params[:data_type_id] if params[:data_type_id]
-    check_data_object_admin_permission(@data_object)
+    return unless check_data_object_admin_permission(@data_object)
     if @data_object.save
       flash[:notice] = "Successfully created data object."
       redirect_to (params[:add_another] ? new_data_type_data_object_path(@data_object.data_type) : data_objects_path)
     else
       @locations_select = options_for_location_select
-      render :action => 'new'
+      render action: 'new'
     end
   end
 
@@ -73,7 +75,7 @@ class DataObjectsController < ApplicationController
       flash[:notice] = "Successfully updated data object."
       redirect_to @data_object
     else
-      render :action => 'edit'
+      render action: 'edit'
     end
   end
 
@@ -84,6 +86,22 @@ class DataObjectsController < ApplicationController
     @data_object.destroy
     flash[:notice] = "Successfully destroyed data object."
     redirect_to data_type_path(@data_type)
+  end
+
+  def update_data_objects
+    @report = current_user.current_shift.report if current_user.current_shift
+    loc_groups = LocGroup.all
+    @loc_groups = loc_groups.select{ |lg| lg.users.include?(current_user) }
+    tasks = []
+    @loc_groups.each do |loc_group|
+      tasks << loc_group.locations.map{ |loc| loc.tasks }.flatten.uniq.compact
+    end
+    tasks = tasks.flatten.uniq.compact
+    tasks = Task.active.after_now & tasks
+    # filters out daily and weekly tasks scheduled for a time later in the day
+    tasks = tasks.delete_if{|t| t.kind != "Hourly" && Time.now.seconds_since_midnight < t.time_of_day.seconds_since_midnight}
+    # filters out weekly tasks on the wrong day
+    @tasks = tasks.delete_if{|t| t.kind == "Weekly" && t.day_in_week != @report.shift.start.strftime("%a") }
   end
 
 private
@@ -128,7 +146,9 @@ private
     if (current_user.loc_groups_to_admin(current_department).map{|lg| lg.locations}.flatten & obj.locations).empty?
       flash[:notice] = "You do not have permission to administer this data object."
       redirect_to access_denied_path
+      return false
     end
+    return true
   end
 
 end

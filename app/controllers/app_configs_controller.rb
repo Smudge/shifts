@@ -7,10 +7,10 @@ class AppConfigsController < ApplicationController
 
   def update
     @app_config = AppConfig.first
-    use_ldap = params[:app_config][:use_ldap] && params[:app_config][:use_ldap]=="1"
-    if @app_config.update_attributes(params[:app_config].merge({:use_ldap=>use_ldap}))
+    use_ldap = (params[:app_config][:use_ldap] == "1")
+    if @app_config.update_attributes(params[:app_config].merge({use_ldap:use_ldap}))
       flash[:notice] = "Successfully updated appconfig."
     end
-    render :action => 'edit'
+    render action: 'edit'
   end
 end

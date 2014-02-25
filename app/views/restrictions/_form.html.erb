@@ -1,8 +1,8 @@
-<% form_for @restriction do |f| %>
+<%= form_for @restriction do |f| %>
   <%= f.error_messages %>
   <p>
     <%= f.label :starts %><br />
-    <%= f.date_select :start_date, :default => @restriction.starts, :id => :start_date  %>
+    <%= f.date_select :start_date, :default => @restriction.starts, :id => :start_date  %><br />
     <%= f.time_select :start_time, {
                 :simple_time_select => true,
                 :time_separator => "",
@@ -15,7 +15,7 @@
   </p>
   <p>
     <%= f.label :expires %><br />
-    <%= f.date_select :end_date, :default => @restriction.expires.to_date, :id => :end_date  %>
+    <%= f.date_select :end_date, :default => @restriction.expires.to_date, :id => :end_date  %><br /	>
     <%= f.time_select :end_time, {
                 :simple_time_select => true,
                 :time_separator => "",
@@ -63,30 +63,3 @@
 
   <p><%= f.submit "Submit" %></p>
 <% end %>
-
-<script type="text/javascript" charset="utf-8">
-    $(document).ready(function(){$("#advanced").hide();})
-    $(document).ready(function(){$("#advanced_link").show();})
-
-var opts = {
-                formElements:{"restriction_start_date_3i":"j",
-                              "restriction_start_date_1i":"Y",
-                              "restriction_start_date_2i":"n"
-                },
-                statusFormat:"l-cc-sp-d-sp-F-sp-Y",
-                noFadeEffect:true,
-                       };
-datePickerController.createDatePicker(opts);
-
-var opts = {
-                formElements:{"restriction_end_date_3i":"j",
-                              "restriction_end_date_1i":"Y",
-                              "restriction_end_date_2i":"n"
-                },
-                statusFormat:"l-cc-sp-d-sp-F-sp-Y",
-                noFadeEffect:true,
-                       };
-datePickerController.createDatePicker(opts);
-
-</script>
-

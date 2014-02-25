@@ -19,6 +19,9 @@ class StickiesController < NoticesController
     @sticky = Sticky.new(params[:sticky])
 		set_author_dept_and_times
 		current_user.current_shift ? @in_shift = true : @in_shift = false
+		if @in_shift
+		  @current_shift = current_user.current_shift
+		end
 		begin
       Sticky.transaction do
         @sticky.save(false)
@@ -27,7 +30,7 @@ class StickiesController < NoticesController
     	end
 		rescue Exception
       respond_to do |format|
-        format.html { render :action => "new" }
+        format.html { render action: "new" }
         format.js  #create.js.rjs
       end
     else
@@ -42,7 +45,7 @@ class StickiesController < NoticesController
   end
 
 	def update
-    @sticky = Sticky.find_by_id(params[:id]) || Sticky.new
+    @sticky = Sticky.where(id: params[:id]).first || Sticky.new
     @sticky.update_attributes(params[:sticky])
 		set_author_dept_and_times
     begin
@@ -53,13 +56,13 @@ class StickiesController < NoticesController
       end
     rescue Exception
         respond_to do |format|
-          format.html { render :action => "new" }
+          format.html { render action: "new" }
         end
       else
         respond_to do |format|
         format.html {
           flash[:notice] = 'Sticky was successfully created.'
-          redirect_to :action => "index"
+          redirect_to action: "index"
         }
       end
     end

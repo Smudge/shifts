@@ -1,37 +1,37 @@
-# Filters added to this controller apply to all controllers in the application.
-# Likewise, all the methods added will be available for all controllers.
-
 class ApplicationController < ActionController::Base
   # almost everything we do is restricted to a department so we always load_department
   # feel free to skip_before_filter when desired
   before_filter :load_app_config
   before_filter :department_chooser
   before_filter :load_user_session
-  before_filter CASClient::Frameworks::Rails::Filter, :if => Proc.new{|s| s.using_CAS?}, :except => 'access_denied'
-  before_filter :login_check, :except => :access_denied
+  before_filter RubyCAS::Filter, if: Proc.new{|s| s.using_CAS?}, except: 'access_denied'
+  before_filter :login_check, except: :access_denied
   before_filter :load_department
   before_filter :prepare_mail_url
-  #before_filter :load_user
+  before_filter :prepare_for_mobile
+  before_filter :load_user
 
+  helper :layout
+  helper :application
 
-  helper :layout # include all helpers, all the time (whyy? -Nathan)
+  #Replaced with similar prototype legacy helper plugin
+  #helper :prototype #TODO including this helper is a stopgap for the shift to Rails 3; contained methods should be rewritten
+
   helper_method :current_user
   helper_method :current_department
-
-  filter_parameter_logging :password, :password_confirmation
 
   protect_from_forgery # See ActionController::RequestForgeryProtection for details
 
   def load_app_config
-    @appconfig = AppConfig.first
+    @appconfig = AppConfig.all.first
   end
 
   def access_denied
-    render :file => "layouts/access_denied.html.erb", :layout => true
+    render file: "layouts/access_denied.html.erb", layout: true
   end
 
   def using_CAS?
-    User.first && (!current_user || current_user.auth_type=='CAS') && @appconfig && @appconfig.login_options.include?('CAS')
+    User.all.first && (!current_user || current_user.auth_type=='CAS') && @appconfig && @appconfig.login_options.include?('CAS')
   end
 
   protected
@@ -40,7 +40,7 @@ class ApplicationController < ActionController::Base
     if @user_session
       @user_session.user
     elsif session[:cas_user]
-      User.find_by_login(session[:cas_user])
+      User.where(login: session[:cas_user]).first
     else
       nil
     end)
@@ -49,7 +49,7 @@ class ApplicationController < ActionController::Base
   def current_department
     unless @current_department
       if current_user
-        @current_department = Department.find_by_id(session[:department_id])
+        @current_department = Department.where(session[:department_id]).first
         unless @current_department
           @current_department = current_user.default_department
           session[:department_id] = @current_department.id
@@ -61,7 +61,7 @@ class ApplicationController < ActionController::Base
 
   def load_department
     if (params[:department_id])
-      @department = Department.find_by_id(params[:department_id])
+      @department = Department.find(params[:department_id])
       if @department
         session[:department_id] = params[:department_id]
       end
@@ -70,7 +70,7 @@ class ApplicationController < ActionController::Base
   end
 
   def load_user
-    @current_user = @user_session.user || User.find_by_login(session[:cas_user]) || User.import_from_ldap(session[:cas_user], true)
+    @current_user = (@user_session && @user_session.user) || User.where(login: session[:cas_user]).first
   end
 
   def load_user_session
@@ -168,9 +168,14 @@ class ApplicationController < ActionController::Base
     return true
   end
 
-  # These three methods all return true/false, so they can be tested to trigger return statements
+  # These three methods all return true/false, so they can be tested to
+  # trigger return statements
+
+  # TODO: Ultimately, we should abstract all this away into a permissions
+  # module, and include that into the application. Ideally, after that we'd
+  # refactor to to have these methods share the redirect code
+
   # Takes a department, location, or loc_group
-  # TODO: This is mixing model logic!!!
   def user_is_admin_of(thing)
     unless current_user.is_admin_of?(thing)
       error_message = "You are not authorized to administer this #{thing.class.name.decamelize}."
@@ -257,7 +262,7 @@ class ApplicationController < ActionController::Base
   end
 
   def login_check
-    if !User.first
+    if User.all.empty?
       redirect_to first_app_config_path
     elsif !current_user
       if @appconfig.login_options==['built-in'] #AppConfig.first.login_options_array.include?('built-in')
@@ -349,13 +354,18 @@ class ApplicationController < ActionController::Base
     end
     Time.utc(date_array[0], nil, nil, date_array[3], date_array[4])
   end
-  
+
 
   def join_date_and_time(form_output)
   #join date and time
     %w{start end mandatory_start mandatory_end}.each do |field_name|
       if form_output["#{field_name}_date"] && form_output["#{field_name}_time"]
-        form_output["#{field_name}"] ||= form_output["#{field_name}_date"].beginning_of_day + form_output["#{field_name}_time"].seconds_since_midnight
+        date = form_output["#{field_name}_date"]
+        time = form_output["#{field_name}_time"]
+        zone = date.end_of_day.zone
+        form_output["#{field_name}"] ||= DateTime.new( date.year, date.month,
+                                                       date.day, time.hour,
+                                                       time.min, time.sec, zone)
         form_output.delete("#{field_name}_date")
         form_output.delete("#{field_name}_time")
       end
@@ -364,13 +374,22 @@ class ApplicationController < ActionController::Base
     end
   end
 
+  def department_day_start_time
+    DateTime.now.in_time_zone(Time.zone).beginning_of_day + current_department.department_config.schedule_start.minutes
+  end
+
+  def department_day_end_time
+    DateTime.now.in_time_zone(Time.zone).beginning_of_day + current_department.department_config.schedule_end.minutes - 1.second
+  end
+
   private
+
 
   def department_chooser
     if (params[:su_mode] && current_user.superuser?)
       current_user.update_attribute(:supermode, params[:su_mode]=='ON')
       flash[:notice] = "Supermode is now #{current_user.supermode? ? 'ON' : 'OFF'}"
-      redirect_to :action => "index" and return
+      redirect_to action: "index" and return
     end
     if (params["chooser"] && params["chooser"]["dept_id"])
       session[:department_id] = params["chooser"]["dept_id"]
@@ -381,7 +400,7 @@ class ApplicationController < ActionController::Base
   #checks to see if the action should be rendered without a layout. optionally pass it another action/controller
   def layout_check(action = action_name, controller = controller_name)
      if params[:layout] == "false"
-      render :controller => controller, :action => action, :layout => false
+      render controller: controller, action: action, layout: false
     end
   end
 
@@ -397,5 +416,17 @@ class ApplicationController < ActionController::Base
     ActionMailer::Base.default_url_options[:host] = request.host_with_port
   end
 
+  def mobile_device?
+    if session[:mobile_param]
+      session[:mobile_param] == "1"
+    else
+      request.user_agent =~ /Mobile|webOS/
+    end
+  end
+  helper_method :mobile_device?
+
+  def prepare_for_mobile
+    session[:mobile_param] = params[:mobile] if params[:mobile]
+  end
 
 end

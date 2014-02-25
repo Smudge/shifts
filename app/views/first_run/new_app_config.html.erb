@@ -1,13 +1,13 @@
 <%= render :partial => 'progress_bar', :locals => {:current_step => 1} %>
 <% title "Configure Application Settings" %>
-<% form_for @app_config, :url => create_first_app_config_path do |f| %>
+<%= form_for @app_config, :url => create_first_app_config_path do |f| %>
   <%= f.error_messages %>
   <p>
     <%= f.label :auth_types, text = "Authentication Method", :class => "form_label_large" %>
   </p>
   <small>If your university uses CAS for authentication, select CAS; otherwise, select Built-in Authentication</small><br/>
   <p>
-    <%= multiple_select :app_config, :auth_types, AppConfig::LOGIN_OPTIONS %>
+    <%= f.select :auth_types, AppConfig::LOGIN_OPTIONS %>
   <p>
 
   <p>
@@ -48,7 +48,7 @@
     <%= f.text_field :ldap_email %>
   </p>
   </div>
-  
+
   <p>
     <%= f.label :mailer_address, text = 'App email address' %><br />
     <small>This is used for the "From" field on any generated email that is not department-specific.</small><br />
@@ -59,7 +59,7 @@
 	<%= f.label :admin_email, text = 'Admin email address' %> <br />
 	<small>This is the administrator email that any non-department-specific correspondences are sent to. </small><br />
 	<%= f.text_field :admin_email %>
-  </p>	
+  </p>
 
   <p>
     <%= f.label :footer, text = "Footer Text", :class => "form_label_large" %><br />
@@ -67,15 +67,7 @@
     or you may produce broken pages.</small><br/>
     <%= f.text_area :footer, {:class => "settings", :size => "80x10"} %>
   </p>
-  
+
   <p><%= f.submit "Submit" %></p>
 
 <% end %>
-
-<script>
-$('#hide').toggle();
-$('#ldap_check_box').click(function () {
-  $('.ldap_fields').toggle();
-});
-</script>
-

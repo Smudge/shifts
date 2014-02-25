@@ -1,6 +1,6 @@
 class DepartmentsController < ApplicationController
-  before_filter :require_superuser
   skip_before_filter :load_department
+  before_filter :require_superuser
   
   def index
     if params[:department_id]
@@ -23,7 +23,7 @@ class DepartmentsController < ApplicationController
       flash[:notice] = "Successfully created department."
       redirect_to @department
     else
-      render :action => 'new'
+      render action: 'new'
     end
   end
 
@@ -37,7 +37,7 @@ class DepartmentsController < ApplicationController
       flash[:notice] = "Successfully updated department."
       redirect_to @department
     else
-      render :action => 'edit'
+      render action: 'edit'
     end
   end
 

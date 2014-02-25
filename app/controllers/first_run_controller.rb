@@ -1,6 +1,8 @@
 class FirstRunController < ApplicationController
-  skip_before_filter :login_check, :if => Proc.new {User.first}
   before_filter :redirect_if_not_first_run
+  skip_before_filter :login_check
+  skip_before_filter :load_user
+
 
   def new_app_config
     @app_config = AppConfig.first || AppConfig.new
@@ -15,7 +17,7 @@ class FirstRunController < ApplicationController
       flash[:notice] = "App Settings have been configured."
       redirect_to first_department_path
     else
-      render :action => 'new_app_config'
+      render action: 'new_app_config'
     end
   end
 
@@ -24,13 +26,13 @@ class FirstRunController < ApplicationController
   end
 
   def create_department
-    Department.first.destroy if Department.first
+    Department.destroy_all if Department.all.any?
     @department=Department.new(params[:department])
     if @department.save
       flash[:notice] = "The first department was successfully created."
       redirect_to first_user_path
     else
-      render :action => 'new_department'
+      render action: 'new_department'
     end
   end
 
@@ -49,7 +51,7 @@ class FirstRunController < ApplicationController
       flash[:notice] = "Successfully set up application."
       redirect_to @user
     else
-      render :action => 'new_user'
+      render action: 'new_user'
     end
   end
 
@@ -63,7 +65,7 @@ class FirstRunController < ApplicationController
 
 private
   def redirect_if_not_first_run
-    if User.first
+    if User.all.any?
       flash[:error] = "The setup wizard can only be run on first launch."
       redirect_to access_denied_path
     end

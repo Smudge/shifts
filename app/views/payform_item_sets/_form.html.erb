@@ -1,4 +1,4 @@
-<% form_for @payform_item_set do |f| %>
+<%= form_for @payform_item_set do |f| %>
   <%= f.error_messages %>
   <p>
     <%= f.label :date %><br />
@@ -19,7 +19,7 @@
   </p>
   <p>
     <%= f.label :description %><br />
-    <%= f.text_area :description %>
+    <%= f.text_field :description %>
   </p>
   <p>
     <%= label_tag "Leave blank to send to everyone" %><br />

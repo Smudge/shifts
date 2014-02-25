@@ -1,9 +1,10 @@
 class SubRequest < ActiveRecord::Base
   belongs_to :shift
-  delegate :user, :to => :shift
-  has_and_belongs_to_many :requested_users, :class_name => 'User'
+  delegate :user, to: :shift
+  has_and_belongs_to_many :requested_users, class_name: 'User'
   validates_presence_of :reason, :shift
-  validate :start_and_end_are_within_shift,
+  validate :shift_is_scheduled,
+           :start_and_end_are_within_shift,
            :mandatory_start_and_end_are_within_subrequest,
            :start_less_than_end,
            :not_in_the_past,
@@ -39,16 +40,15 @@ class SubRequest < ActiveRecord::Base
             new_shift.start = just_mandatory ? sub_request.mandatory_start : sub_request.start
           end
           new_shift.end = just_mandatory ? sub_request.mandatory_end : sub_request.end
-          UserSinksUserSource.delete_all("#{:user_sink_type.to_sql_column} = #{"SubRequest".to_sql} AND #{:user_sink_id.to_sql_column} = #{sub_request.id.to_sql}")
           sub_request.destroy
           email_start = new_shift.start.time
           email_end = new_shift.end.time
           Shift.delete_part_of_shift(old_shift, new_shift.start, new_shift.end)
           new_shift.save!
-          ArMailer.deliver(ArMailer.create_sub_taken_notification(sub_request, new_shift, new_shift.department))
+          UserMailer.delay.sub_taken_notification(sub_request, new_shift, new_shift.department)
           sub_watch_users = sub_request.potential_takers.select {|u| u.user_config.taken_sub_email}
           for user in sub_watch_users
-            ArMailer.deliver(ArMailer.create_sub_taken_watch(user, sub_request, new_shift, email_start, email_end, new_shift.department))
+            UserMailer.delay.sub_taken_watch(user, sub_request, new_shift, email_start, email_end, new_shift.department)
           end
           return true
         end
@@ -72,7 +72,7 @@ class SubRequest < ActiveRecord::Base
   end
 
   def user_is_eligible?(user)
-    #can uncomment line below to prevent a user from taking their own shift. 
+    #can uncomment line below to prevent a user from taking their own shift.
     #return false if self.user == user
     user.can_signup?(self.shift.loc_group)
   end
@@ -90,11 +90,6 @@ class SubRequest < ActiveRecord::Base
      shift.location.loc_group.roles
   end
 
-  def sub_name
-    sub_class = self.user_source_type.classify
-    sub_name = sub_class.find(self.user_source_id).name.to_s
-  end
-
   def has_started?
     self.start < Time.now
   end
@@ -106,15 +101,13 @@ class SubRequest < ActiveRecord::Base
     end                                             #work-around: lists are printed as "item,,item,,item" which now swap to "item, item, item"
   end
 
-  def join_date_and_time
-    self.start ||= self.start_date.to_date.to_time + self.start_time.seconds_since_midnight
-    self.end ||= self.end_date.to_date.to_time + self.end_time.seconds_since_midnight
-    self.mandatory_start ||= self.mandatory_start_date.to_date.to_time + self.mandatory_start_time.seconds_since_midnight
-    self.mandatory_end ||= self.mandatory_end_date.to_date.to_time + self.mandatory_end_time.seconds_since_midnight
-  end
-
-
   private
+
+  def shift_is_scheduled
+    unless self.shift.scheduled?
+      errors.add_to_base("Sub Request cannot be made for an unscheduled shift.")
+    end
+  end
 
 
   def start_and_end_are_within_shift
@@ -141,7 +134,7 @@ class SubRequest < ActiveRecord::Base
   end
 
   def user_does_not_have_concurrent_sub_request
-    c = SubRequest.count(:all, :conditions => ["#{:shift_id.to_sql_column} = #{self.shift_id.to_sql} AND #{:start.to_sql_column} < #{self.end.to_sql} AND #{:end.to_sql_column} > #{self.start.to_sql}"])
+    c = SubRequest.where("shift_id = ? AND start < ? AND end > ?", self.shift_id, self.end, self.start).count
     unless c.zero?
       errors.add_to_base("#{self.shift.user.name} has an overlapping sub request in that period.") unless (self.id and c==1)
     end

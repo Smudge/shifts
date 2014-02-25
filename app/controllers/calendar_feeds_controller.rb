@@ -1,5 +1,4 @@
 class CalendarFeedsController < ApplicationController
-    skip_before_filter filter_chain, :except => [:index]
 
   def index
     @source_types = %w[User Department LocGroup Location]
@@ -19,7 +18,7 @@ class CalendarFeedsController < ApplicationController
     current_user.calendar_feed_hash = nil
     current_user.save!
     flash[:notice] = 'All calendars reset.  NOTE: Your old feeds are now inactive'
-    redirect_to :action => "index"
+    redirect_to action: "index"
   end
 
   def grab
@@ -27,7 +26,7 @@ class CalendarFeedsController < ApplicationController
       @token_array = resolve_token(params[:token], params[:user_id])
       @user = User.find(params[:user_id])
     rescue Exception => e
-      redirect_to :action => "index"
+      redirect_to action: "index"
       flash[:error] = 'Could not load calendar feed.  This feed may be invalid, inactive, or disabled.'
       return
     end
@@ -39,16 +38,16 @@ class CalendarFeedsController < ApplicationController
     elsif @type == "Shift"
        case
         when @source.class.name == "Department" && @user.departments.include?(@source) && @user.is_active?(@source)
-            @shifts = Shift.in_locations(@source.loc_groups.select {|lg| @user.can_view?(lg)}.collect(&:locations).flatten).after_date(Time.now.utc - 3.weeks).not_for_user(@user).flatten
+            @shifts = Shift.active.in_locations(@source.loc_groups.select {|lg| @user.can_view?(lg)}.collect(&:locations).flatten).after_date(Time.now.utc - 3.weeks).not_for_user(@user).flatten
         when @source.class.name == "LocGroup" && @user.can_view?(@source)
-            @shifts = Shift.in_locations(@source.locations).after_date(Time.now.utc - 3.weeks).not_for_user(@user).flatten
+            @shifts = Shift.active.in_locations(@source.locations).after_date(Time.now.utc - 3.weeks).not_for_user(@user).flatten
         when @source.class.name == "Location" && @user.can_view?(@source.loc_group)
-            @shifts = Shift.not_for_user(@user).find(:all, :conditions => ["location_id = ? AND end >= ?", @source.id, Time.now.utc - 3.weeks])
+            @shifts = Shift.active.not_for_user(@user).where("location_id = ? AND end >= ?", @source.id, Time.now.utc - 3.weeks)
         when @source.class.name == "User"
-           @shifts = Shift.in_departments(@source.active_departments).for_user(@source).after_date(Time.now.utc - 3.weeks).flatten
+            @shifts = Shift.active.in_departments(@source.active_departments).for_user(@source).after_date(Time.now.utc - 3.weeks).flatten
       end
     end
-    render :text => generate_ical
+    render text: generate_ical
   end
 
   private

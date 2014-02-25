@@ -17,14 +17,15 @@ class RepeatingEvent < ActiveRecord::Base
   def self.destroy_self_and_future(repeating_event, time=false)
     should_update = !time
     time = Time.now unless time
-    if repeating_event.has_time_slots?
-        TimeSlot.delete_all("#{:repeating_event_id.to_sql_column} = #{repeating_event.id.to_sql} AND #{:end.to_sql_column} > #{time.utc.to_sql}")
-        TimeSlot.update_all("#{:repeating_event_id.to_sql_column} = #{nil.to_sql}", "#{:repeating_event_id.to_sql_column} = #{repeating_event.id.to_sql}") if should_update
-      else
-        Shift.mass_delete_with_dependencies(Shift.find(:all, :conditions => ["#{:repeating_event_id.to_sql_column} = #{repeating_event.id.to_sql} AND #{:end.to_sql_column} > #{time.utc.to_sql}"]))
-        Shift.update_all("#{:repeating_event_id.to_sql_column} = #{nil.to_sql}", "#{:repeating_event_id.to_sql_column} = #{repeating_event.id.to_sql}") if should_update
+
+    TimeSlot.delete_all(["repeating_event_id = ? AND end > ? }", repeating_event.id, time.utc])
+    Shift.mass_delete_with_dependencies(Shift.where("repeating_event_id = ? AND end > ?", repeating_event.id, time.utc))
+
+    if should_update
+      TimeSlot.where(repeating_event_id: repeating_event.id).update_all(repeating_event_id: nil)
+      Shift.where(repeating_event_id: repeating_event.id).update_all(repeating_event_id: nil)
+      repeating_event.destroy
     end
-    repeating_event.destroy if should_update
   end
 
   def make_future(wipe)
@@ -179,12 +180,12 @@ class RepeatingEvent < ActiveRecord::Base
 
   def adjust_for_past_event
     if self.start_time <= Time.now
-      self.start_time = self.start_time.change(:day => Date.today.day, :month => Date.today.month, :year => Date.today.year)
-      self.end_time = self.end_time.change(:day => Date.today.day, :month => Date.today.month, :year => Date.today.year)
+      self.start_time = self.start_time.change(day: Date.today.day, month: Date.today.month, year: Date.today.year)
+      self.end_time = self.end_time.change(day: Date.today.day, month: Date.today.month, year: Date.today.year)
     end
     if self.start_time <= Time.now
-      self.start_time = self.start_time.change(:day => Date.tomorrow.day, :month => Date.tomorrow.month, :year => Date.tomorrow.year)
-      self.end_time = self.end_time.change(:day => Date.tomorrow.day, :month => Date.tomorrow.month, :year => Date.tomorrow.year)
+      self.start_time = self.start_time.change(day: Date.tomorrow.day, month: Date.tomorrow.month, year: Date.tomorrow.year)
+      self.end_time = self.end_time.change(day: Date.tomorrow.day, month: Date.tomorrow.month, year: Date.tomorrow.year)
     end
   end
 

@@ -1,6 +1,6 @@
-# Methods added to this helper will be available to all templates in the application.
-module ApplicationHelper
+# encoding: UTF-8
 
+module ApplicationHelper
   def link_toggle(id, name, speed = "slow")
     # "<a href='#' onclick=\"Element.toggle('%s'); return false;\">%s</a>" % [id, name]
     link_to_function name, "$('##{id}').slideToggle('#{speed}')"
@@ -9,17 +9,17 @@ module ApplicationHelper
 
 	def link_to_post_a_link
 		if current_user.is_loc_group_admin?(current_department) || current_user.is_admin_of?(current_department)
-    	link_to_unless_current('Post a new link', new_link_path(:height => 225, :width => 515, :type => "Link"), :title => "Post a new link", :class => "thickbox", :id => "post_link" )
+    	link_to_unless_current('Post a new link', new_link_path(height: 225, width: 515, type: "Link"), title: "Post a new link", class: "thickbox", id: "post_link" )
 		end
   end
 
-	def link_to_post_a_sticky()
-		link_to_unless_current('Post a new sticky', new_sticky_path(:height => 200, :width => 515, :type => "Sticky"), :title => "Post a new sticky", :class => "thickbox", :id => "post_link" )
+	def link_to_post_a_sticky
+		link_to_unless_current('Post a new sticky', new_sticky_path(height: 200, width: 515, type: "Sticky"), title: "Post a new sticky", class: "thickbox", id: "post_link" )
   end
 
 	def link_to_post_an_announcement
 		if current_user.is_loc_group_admin?(current_department) || current_user.is_admin_of?(current_department)
-			link_to_unless_current('Post a new announcement', new_announcement_path(:height => 345, :width => 515), :title => "Post a new announcement", :class => "thickbox", :id => "announcement_link")
+			link_to_unless_current('Post a new announcement', new_announcement_path(height: 345, width: 515), title: "Post a new announcement", class: "thickbox", id: "announcement_link")
 		end
 	end
 
@@ -36,11 +36,11 @@ module ApplicationHelper
   def tokenized_users_autocomplete(object, field, options = {})
     #set defaults
     options.reverse_merge!({
-      :id => "list_of_logins",
-      :hint_text => "Type a name, NetID, role or department",
-      :style => "vertical", #default to vertical style -- seems more appropriate
-      :classes => ["User","Role","Department"],
-      :include_headers => true
+      id: "list_of_logins",
+      hint_text: "Type a name, NetID, role or department",
+      style: "vertical", #default to vertical style -- seems more appropriate
+      classes: ["User","Role","Department"],
+      include_headers: true
     })
 
 
@@ -70,19 +70,15 @@ module ApplicationHelper
 
     #Tell the app to put javascript info at top and bottom of pages (Unobtrusive Javascript - style)
     content_for :javascript,
-      '$(document).ready(function() {
-        $("#'+options[:id]+'").tokenInput("'+autocomplete_department_users_path(current_department, :classes => options[:classes])+'", {
+      ('$(document).ready(function() {
+        $("#'+options[:id]+'").tokenInput("'+autocomplete_department_users_path(current_department, classes: options[:classes])+'", {
             prePopulate: ['+json_string+'],
             hintText: "'+options[:hint_text]+'",
             classes: {
               '+style+'
             }
           });
-        });'
-    if options[:include_headers]
-      content_for :head, javascript_include_tag('jquery.tokeninput')
-      content_for :head, stylesheet_link_tag(css_file)
-    end
+        });').html_safe
     text_field_tag(options[:id])
   end
 
@@ -96,7 +92,7 @@ module ApplicationHelper
         output << ">#{i}"
       end
     end
-    output + "</select>"
+    (output + "</select>").html_safe
   end
 
 
@@ -127,7 +123,13 @@ module ApplicationHelper
   end
 
   def calculate_default_times_repeating_events
-    @default_start_date = Time.now.to_date
+    if params[:date]
+      #From the parameters, including the entire current week
+      @default_start_date = Date.parse(params[:date])
+    else
+      #The current week
+      @default_start_date = Time.now.to_date
+    end
     @repeating_event.start_time ||= @default_start_date.to_time + current_department.department_config.schedule_start.minutes
     @repeating_event.end_time ||= @default_start_date.to_time + current_department.department_config.schedule_end.minutes
     @range_start_time = Time.now.to_date + current_department.department_config.schedule_start.minutes
@@ -137,20 +139,17 @@ module ApplicationHelper
     end
   end
 
-	def observe_fields(fields)
-		#prepare a value of the :with parameter
-		with = "'"
-		for field in fields
-			with += field + "=’$(’#" + field + "’).is(':checked')"
-			with += " + " if field != fields.last
-		end
- 		with += "'"
-		#generate a call of the observer_field helper for each field
-		ret = "";
-		for field in fields
-			puts field
-			ret += observe_field(field.to_s, :url => {:controller => :templates, :action => "update_locations"}, :with => with, :on => "change")
-    end
-    return ret
-	end
+  def navbar_highlight(controller_name)
+    navbar_hash = Hash[ "dashboard" => ["dashboard"],
+                        "departments" => ["departments", "app_configs", "department_configs", "locations", "loc_groups", "calendars", "application", "templates", "calendar_feeds", "time_slots"],
+                        "users" => ["users", "roles", "user_profiles", "superusers", "user_profile_fields"],
+                        "shifts" => ["shifts", "links", "notices", "data_objects", "stats", "announcements",  "data_entries", "data_fields", "data_types", "repeating_events", "report_items", "stickies", "tasks", "reports"],
+                        "payforms" => ["payforms", "payform_items", "punch_clocks", "punch_clock_sets", "payform_item_sets", "categories"]]
+    navbar_hash.select{|key, value| value.include?(controller_name) }.flatten.first
+  end
+
+  def normalize_str(string)
+    string.downcase.gsub( /[^a-zA-Z0-9_\.]/, '_')
+  end
+
 end

@@ -11,16 +11,16 @@ class DataField < ActiveRecord::Base
   validates_presence_of :data_type
   validates_presence_of :name
   validates_presence_of :display_type
-  
-  validates_uniqueness_of :name, :scope => :data_type_id
 
-  default_scope :conditions => { :active => true }
+  validates_uniqueness_of :name, scope: :data_type_id
+
+  default_scope where(active: true)
 
   #This should probably be moved to the data_entries helper
   #Based on the display type, returns the arguments for the formhelper methods
   def prepare_form_helpers
     if display_type == "text_field"
-      return ["data_fields", id, {:id => id}]
+      return ["data_fields", id, {id: id}]
     elsif display_type == "text_area"
       return ["data_fields", id]
     elsif display_type == "select"

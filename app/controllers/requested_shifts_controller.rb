@@ -3,7 +3,7 @@ class RequestedShiftsController < ApplicationController
   before_filter :require_proper_template_role
 
   def index
-		@week_template = Template.find(:first, :conditions => {:id => params[:template_id]})
+		@week_template = Template.find(params[:template_id])
 		#copied from time_slot, some might not be necessary?
 		@period_start = Date.today.previous_sunday
     #TODO:simplify this stuff:
@@ -17,9 +17,9 @@ class RequestedShiftsController < ApplicationController
     @hidden_timeslots = [] #for timeslots that don't show up on the view
 
     if current_department.department_config.weekend_shifts #show weekends
-      @day_collection = @period_start...(@period_start+7)
+      @day_collection = (@period_start...(@period_start+7)).to_a
     else #no weekends
-      @day_collection = (@period_start+1)...(@period_start+6)
+      @day_collection = ((@period_start+1)...(@period_start+6)).to_a
     end
 		@shift_preference = current_user.shift_preferences.select{|sp| sp.template_id == @week_template.id}.first
 		@requested_shift = RequestedShift.new
@@ -27,21 +27,21 @@ class RequestedShiftsController < ApplicationController
     @requested_shifts = @week_template.requested_shifts if current_user.is_admin_of?(current_department)
     respond_to do |format|
       format.html # index.html.erb
-      format.xml  { render :xml => @requested_shifts }
+      format.xml  { render xml: @requested_shifts }
     end
   end
 
   def show
     @requested_shift = RequestedShift.find(params[:id])
-		@week_template = Template.find(:first, :conditions => {:id => params[:template_id]})
+		@week_template = Template.find(params[:template_id])
     respond_to do |format|
       format.html # show.html.erb
-      format.xml  { render :xml => @requested_shift }
+      format.xml  { render xml: @requested_shift }
     end
   end
 
   def new
-		@week_template = Template.find(:first, :conditions => {:id => params[:template_id]})		
+		@week_template = Template.find(params[:template_id])
 		@shift_preference = current_user.shift_preferences.select{|sp| sp.template_id == @week_template.id}.first
 		@template_time_slots = @week_template.template_time_slots
 #		If the user does not have a shift preference object for the given template, make sure they create one first
@@ -60,7 +60,7 @@ class RequestedShiftsController < ApplicationController
 
   def edit
     @requested_shift = RequestedShift.find(params[:id])
-		@week_template = Template.find(:first, :conditions => {:id => params[:template_id]})
+		@week_template = Template.find(params[:template_id])
 		@locations = @week_template.timeslot_locations
   end
 
@@ -76,7 +76,7 @@ class RequestedShiftsController < ApplicationController
 		@requested_shift.user = current_user
 		@locations = @requested_shift.template.timeslot_locations
 		begin
-			RequestedShift.transaction do 
+			RequestedShift.transaction do
 				@requested_shift.save(false)
 				if params[:for_locations]
 					params[:for_locations].each do |loc_id|
@@ -93,7 +93,7 @@ class RequestedShiftsController < ApplicationController
 			@requested_shifts = current_user.requested_shifts.select{|rs| rs.template == @week_template}
 		  @requested_shifts = @week_template.requested_shifts if current_user.is_admin_of?(current_department)
 			respond_to do |format|
-		  	format.html { render :action => "edit" }
+		  	format.html { render action: "edit" }
 				format.js
 		  end
 		else
@@ -112,12 +112,10 @@ class RequestedShiftsController < ApplicationController
 		parse_just_time(params[:requested_shift])
     @requested_shift = RequestedShift.find(params[:id])
 		@week_template = Template.find(params[:template_id])
-		puts "hi"    
-		puts params.to_yaml
 		respond_to do |format|
       if @requested_shift.update_attributes(params[:requested_shift])
 				if params[:assign_flag]
-					@lrs = LocationsRequestedShift.find(:first, :conditions => ['requested_shift_id = ? AND location_id = ?', @requested_shift, Location.find(params[:assigned_location])])
+					@lrs = LocationsRequestedShift.where('requested_shift_id = ? AND location_id = ?', @requested_shift, Location.find(params[:assigned_location])).first
 					@lrs.assigned = true
 					@lrs.save
 				end
@@ -126,7 +124,7 @@ class RequestedShiftsController < ApplicationController
         format.xml  { head :ok }
       else
         format.html { redirect_to(edit_template_requested_shift_path(@week_template, @requested_shift)) }
-        format.xml  { render :xml => @requested_shift.errors, :status => :unprocessable_entity }
+        format.xml  { render xml: @requested_shift.errors, status: :unprocessable_entity }
       end
     end
   end
